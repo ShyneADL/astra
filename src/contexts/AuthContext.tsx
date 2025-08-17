@@ -1,7 +1,6 @@
-import type { ReactNode } from "react";
-import React, { createContext, useContext, useEffect, useState } from "react";
-import type { User, AuthResponse } from "@supabase/supabase-js";
-import { AuthError } from "@supabase/supabase-js";
+import type { ReactNode, ReactElement } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
+import type { User, AuthResponse, AuthError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 interface AuthContextType {
@@ -28,29 +27,36 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-export const AuthProvider = ({
-  children,
-}: AuthProviderProps): React.ReactElement => {
+export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
+      if (isMounted) {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setUser(session?.user ?? null);
-      // Remove setLoading(false) from here to prevent infinite re-renders
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (isMounted) {
+        setUser(session?.user ?? null);
+        // Keep loading controlled by the initial session check to avoid loops
+      }
     });
 
-    return () => subscription.unsubscribe();
-  }, [user]);
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []); // Run once on mount to avoid re-registering listener
 
   const signUp = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({

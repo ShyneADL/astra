@@ -11,22 +11,48 @@ import {
   Users,
   Cloud,
   ShieldCheck,
-  Github,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 
 export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
-      alert("Login successful! (This is a demo)");
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) {
+        setError(error.message);
+      } else {
+        navigate("/dashboard", { replace: true });
+      }
+    } finally {
       setLoading(false);
-    }, 2000);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin + "/dashboard" },
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -199,8 +225,9 @@ export default function AuthPage() {
                     <span className="relative px-2">Or continue with</span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <button
+                      onClick={handleGoogleSignIn}
                       type="button"
                       className="border-border bg-white text-foreground hover:bg-white/80 flex items-center justify-center rounded-lg border px-4 py-2.5 text-sm shadow-sm"
                     >
@@ -210,13 +237,6 @@ export default function AuthPage() {
                         alt="Google"
                       />
                       <span className="ml-2">Google</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="border-border bg-white text-foreground hover:bg-white/80 flex items-center justify-center rounded-lg border px-4 py-2.5 text-sm shadow-sm"
-                    >
-                      <Github className="h-5 w-5" />
-                      <span className="ml-2">GitHub</span>
                     </button>
                   </div>
                 </form>
