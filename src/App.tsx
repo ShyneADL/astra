@@ -3,10 +3,10 @@ import {
   RouterProvider,
   Navigate,
 } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
+// import { AuthProvider } from "./contexts/AuthContext";
 import AuthPage from "./components/Auth/AuthPage";
 import Dashboard from "./components/Dashboard";
-import ProtectedRoute from "./components/ProtectedRoute";
+// import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 
 const router = createBrowserRouter([
@@ -16,29 +16,23 @@ const router = createBrowserRouter([
   },
   {
     path: "/dashboard",
-    element: (
-      <ProtectedRoute>
-        <Dashboard />
-      </ProtectedRoute>
-    ),
+    element: <Dashboard />,
   },
   {
     path: "/",
-    element: <Navigate to="/dashboard" replace />,
+    element: <Dashboard />,
   },
   {
     path: "*",
-    element: <Navigate to="/dashboard" replace />,
+    element: <Navigate to="/" replace />,
   },
 ]);
 
 function App() {
   return (
-    <AuthProvider>
-      <div className="App">
-        <RouterProvider router={router} />
-      </div>
-    </AuthProvider>
+    <div className="App">
+      <RouterProvider router={router} />
+    </div>
   );
 }
 

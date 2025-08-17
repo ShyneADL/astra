@@ -1,16 +1,7 @@
-import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import ChatInterface from './AIChat/ChatInterface'
+// File: Dashboard.tsx — function Dashboard
+import ChatInterface from "./AIChat/ChatInterface";
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
-
-  const handleSignOut = async () => {
-    await signOut()
-    navigate('/auth')
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
@@ -24,19 +15,13 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
-                <span className="font-medium">{user?.email}</span>
+                <span className="font-medium">Guest</span>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                Sign Out
-              </button>
             </div>
           </div>
         </div>
       </header>
-      
+
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="bg-white rounded-lg shadow-sm border h-[calc(100vh-200px)]">
@@ -45,5 +30,5 @@ export default function Dashboard() {
         </div>
       </main>
     </div>
-  )
+  );
 }
