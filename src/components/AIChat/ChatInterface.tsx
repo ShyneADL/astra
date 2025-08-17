@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as React from "react";
-import { generateResponse } from "@/lib/gemini";
 
 interface UseAutoResizeTextareaProps {
   minHeight: number;
@@ -126,6 +125,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   }
 );
 Textarea.displayName = "Textarea";
+
 export default function AnimatedAIChat() {
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -142,11 +142,6 @@ export default function AnimatedAIChat() {
   const [inputFocused, setInputFocused] = useState(false);
   const commandPaletteRef = useRef<HTMLDivElement>(null);
 
-  // Add these states for chat messages and errors
-  const [messages, setMessages] = useState<
-    Array<{ id: string; role: "user" | "assistant"; content: string }>
-  >([]);
-  const [error, setError] = useState<string | null>(null);
   const commandSuggestions: CommandSuggestion[] = [
     {
       icon: <ImageIcon className="h-4 w-4" />,
@@ -257,54 +252,17 @@ export default function AnimatedAIChat() {
     }
   };
 
-  // Replace this function with an async Gemini-backed version
-  const handleSendMessage = async () => {
-    if (!value.trim()) return;
-
-    const userMessage = value.trim();
-    const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-    // Append user message immediately
-    setMessages((prev) => [
-      ...prev,
-      { id: messageId, role: "user", content: userMessage },
-    ]);
-
-    // Reset input
-    setValue("");
-    adjustHeight(true);
-    setError(null);
-
-    startTransition(async () => {
-      setIsTyping(true);
-      try {
-        const aiText = await generateResponse(userMessage);
-
-        // Append assistant response
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-            role: "assistant",
-            content: aiText || "I couldn't generate a response.",
-          },
-        ]);
-      } catch (err) {
-        console.error("Error getting AI response:", err);
-        setError("Failed to get response from AI. Please try again.");
-      } finally {
-        setIsTyping(false);
-      }
-    });
-  };
-
-  const handleAttachFile = () => {
-    const mockFileName = `file-${Math.floor(Math.random() * 1000)}.pdf`;
-    setAttachments((prev) => [...prev, mockFileName]);
-  };
-
-  const removeAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  const handleSendMessage = () => {
+    if (value.trim()) {
+      startTransition(() => {
+        setIsTyping(true);
+        setTimeout(() => {
+          setIsTyping(false);
+          setValue("");
+          adjustHeight(true);
+        }, 3000);
+      });
+    }
   };
 
   const selectCommandSuggestion = (index: number) => {
@@ -319,7 +277,6 @@ export default function AnimatedAIChat() {
   return (
     <div className="flex w-full overflow-x-hidden">
       <div className="text-foreground relative flex min-h-[80vh] h-full w-full flex-col items-center justify-center overflow-hidden bg-transparent p-6">
-        {/* Background */}
         <div className="absolute inset-0 h-full w-full overflow-hidden">
           <div className="bg-primary/10 absolute top-0 left-1/4 h-96 w-96 animate-pulse rounded-full mix-blend-normal blur-[128px] filter" />
           <div className="bg-secondary/10 absolute right-1/4 bottom-0 h-96 w-96 animate-pulse rounded-full mix-blend-normal blur-[128px] filter delay-700" />
@@ -333,7 +290,6 @@ export default function AnimatedAIChat() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
           >
-            {/* Header */}
             <div className="space-y-3 text-center">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -361,91 +317,194 @@ export default function AnimatedAIChat() {
               </motion.p>
             </div>
 
-            {/* Messages list (new) */}
-            {messages.length > 0 && (
-              <div className="max-h-[50vh] overflow-y-auto space-y-4">
-                {messages.map((m) => (
-                  <motion.div
-                    key={m.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={cn(
-                      "flex",
-                      m.role === "user" ? "justify-end" : "justify-start"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-2xl p-4 text-sm whitespace-pre-wrap",
-                        m.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-card border border-border"
-                      )}
-                    >
-                      {m.content}
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-
-            {/* Error banner (new) */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 text-sm rounded-lg bg-destructive/10 border border-destructive/20 text-destructive"
-              >
-                {error}
-              </motion.div>
-            )}
-
-            {/* Input Card */}
             <motion.div
               className="border-border bg-card/80 relative rounded-2xl border shadow-2xl backdrop-blur-2xl"
               initial={{ scale: 0.98 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.1 }}
             >
-              {/* ... existing command palette code ... */}
-
-              {/* ... rest of existing code for input area, attachments, and buttons ... */}
-            </motion.div>
-
-            {/* Command suggestions - only show when no messages */}
-            {messages.length === 0 && (
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {commandSuggestions.map((suggestion, index) => (
-                  <motion.button
-                    key={suggestion.prefix}
-                    onClick={() => selectCommandSuggestion(index)}
-                    className="group bg-primary/5 text-muted-foreground hover:bg-primary/10 hover:text-foreground relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all"
-                    initial={{ opacity: 0, y: 10 }}
+              <AnimatePresence>
+                {showCommandPalette && (
+                  <motion.div
+                    ref={commandPaletteRef}
+                    className="border-border bg-background/90 absolute right-4 bottom-full left-4 z-50 mb-2 overflow-hidden rounded-lg border shadow-lg backdrop-blur-xl"
+                    initial={{ opacity: 0, y: 5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
+                    exit={{ opacity: 0, y: 5 }}
+                    transition={{ duration: 0.15 }}
                   >
-                    {suggestion.icon}
-                    <span>{suggestion.label}</span>
-                    <motion.div
-                      className="border-border/50 absolute inset-0 rounded-lg border"
-                      initial={false}
-                      animate={{
-                        opacity: [0, 1],
-                        scale: [0.98, 1],
-                      }}
-                      transition={{
-                        duration: 0.3,
-                        ease: "easeOut",
-                      }}
+                    <div className="bg-background py-1">
+                      {commandSuggestions.map((suggestion, index) => (
+                        <motion.div
+                          key={suggestion.prefix}
+                          className={cn(
+                            "flex cursor-pointer items-center gap-2 px-3 py-2 text-xs transition-colors",
+                            activeSuggestion === index
+                              ? "bg-primary/20 text-foreground"
+                              : "text-muted-foreground hover:bg-primary/10"
+                          )}
+                          onClick={() => selectCommandSuggestion(index)}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.03 }}
+                        >
+                          <div className="text-primary flex h-5 w-5 items-center justify-center">
+                            {suggestion.icon}
+                          </div>
+                          <div className="font-medium">{suggestion.label}</div>
+                          <div className="text-muted-foreground ml-1 text-xs">
+                            {suggestion.prefix}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <div className="p-4">
+                <Textarea
+                  ref={textareaRef}
+                  value={value}
+                  onChange={(e) => {
+                    setValue(e.target.value);
+                    adjustHeight();
+                  }}
+                  onKeyDown={handleKeyDown}
+                  onFocus={() => setInputFocused(true)}
+                  onBlur={() => setInputFocused(false)}
+                  placeholder="Ask mvp.ai a question..."
+                  containerClassName="w-full"
+                  className={cn(
+                    "w-full px-4 py-3",
+                    "resize-none",
+                    "bg-transparent",
+                    "border-none",
+                    "text-foreground text-sm",
+                    "focus:outline-none",
+                    "placeholder:text-muted-foreground",
+                    "min-h-[60px]"
+                  )}
+                  style={{
+                    overflow: "hidden",
+                  }}
+                  showRing={false}
+                />
+              </div>
+
+              <div className="border-border flex items-center justify-between gap-4 border-t p-4">
+                <div className="flex items-center gap-3">
+                  <motion.button
+                    type="button"
+                    data-command-button
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                      e.stopPropagation();
+                      setShowCommandPalette((prev) => !prev);
+                    }}
+                    whileTap={{ scale: 0.94 }}
+                    className={cn(
+                      "cursor-pointer group text-muted-foreground hover:text-foreground relative rounded-lg p-2 transition-colors",
+                      showCommandPalette && "bg-primary/20 text-foreground"
+                    )}
+                  >
+                    <Command className="h-4 w-4" />
+                    <motion.span
+                      className="bg-primary/10 absolute inset-0 rounded-lg opacity-0 transition-opacity group-hover:opacity-100"
+                      layoutId="button-highlight"
                     />
                   </motion.button>
-                ))}
+                </div>
+
+                <motion.button
+                  type="button"
+                  onClick={handleSendMessage}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={isTyping || !value.trim()}
+                  className={cn(
+                    "rounded-lg px-4 py-2 text-sm font-medium transition-all",
+                    "flex items-center gap-2 cursor-pointer",
+                    value.trim()
+                      ? "bg-primary text-primary-foreground shadow-primary/10 shadow-lg"
+                      : "bg-muted/50 text-muted-foreground"
+                  )}
+                >
+                  {isTyping ? (
+                    <LoaderIcon className="h-4 w-4 animate-[spin_2s_linear_infinite]" />
+                  ) : (
+                    <SendIcon className="h-4 w-4" />
+                  )}
+                  <span>Send</span>
+                </motion.button>
               </div>
-            )}
+            </motion.div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {commandSuggestions.map((suggestion, index) => (
+                <motion.button
+                  key={suggestion.prefix}
+                  onClick={() => selectCommandSuggestion(index)}
+                  className="group bg-primary/5 text-muted-foreground hover:bg-primary/10 hover:text-foreground relative flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  {suggestion.icon}
+                  <span>{suggestion.label}</span>
+                  <motion.div
+                    className="border-border/50 absolute inset-0 rounded-lg border"
+                    initial={false}
+                    animate={{
+                      opacity: [0, 1],
+                      scale: [0.98, 1],
+                    }}
+                    transition={{
+                      duration: 0.3,
+                      ease: "easeOut",
+                    }}
+                  />
+                </motion.button>
+              ))}
+            </div>
           </motion.div>
         </div>
 
-        {/* ... existing typing indicator and focus effect code ... */}
+        <AnimatePresence>
+          {isTyping && (
+            <motion.div
+              className="border-border bg-background/80 fixed bottom-8 mx-auto -translate-x-1/2 transform rounded-full border px-4 py-2 shadow-lg backdrop-blur-2xl"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="bg-primary/10 flex h-7 w-8 items-center justify-center rounded-full text-center">
+                  <Sparkles className="text-primary h-4 w-4" />
+                </div>
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                  <span>Thinking</span>
+                  <TypingDots />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {inputFocused && (
+          <motion.div
+            className="from-primary via-primary/80 to-secondary pointer-events-none fixed z-0 h-[50rem] w-[50rem] rounded-full bg-gradient-to-r opacity-[0.02] blur-[96px]"
+            animate={{
+              x: mousePosition.x - 400,
+              y: mousePosition.y - 400,
+            }}
+            transition={{
+              type: "spring",
+              damping: 25,
+              stiffness: 150,
+              mass: 0.5,
+            }}
+          />
+        )}
       </div>
     </div>
   );
