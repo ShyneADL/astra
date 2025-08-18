@@ -1,5 +1,6 @@
 import type { ReactNode, ReactElement } from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User, AuthResponse, AuthError } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
@@ -28,41 +29,42 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const queryClient = useQueryClient();
+
+  // Centralized user state via TanStack Query
+  const { data: user, isLoading } = useQuery<User | null, AuthError>({
+    queryKey: ["auth", "user"],
+    queryFn: async () => {
+      const {
+        data: { session },
+        error,
+      } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session?.user ?? null;
+    },
+    staleTime: Infinity,
+    gcTime: Infinity,
+  });
 
   useEffect(() => {
-    let isMounted = true;
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isMounted) {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
+    // Listen for auth changes and update the cache
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) {
-        setUser(session?.user ?? null);
-        // Keep loading controlled by the initial session check to avoid loops
-      }
+      queryClient.setQueryData(["auth", "user"], session?.user ?? null);
     });
 
     return () => {
-      isMounted = false;
       subscription.unsubscribe();
     };
-  }, []); // Run once on mount to avoid re-registering listener
+  }, [queryClient]);
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    // Re-fetch user after sign-up in case session/user is available/confirmed
+    if (!error) {
+      await queryClient.invalidateQueries({ queryKey: ["auth", "user"] });
+    }
     return { data, error };
   };
 
@@ -71,20 +73,28 @@ export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
       email,
       password,
     });
+    // Re-fetch user after sign-in
+    if (!error) {
+      await queryClient.invalidateQueries({ queryKey: ["auth", "user"] });
+    }
     return { data, error };
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
+    // Update cache to null on sign-out
+    if (!error) {
+      queryClient.setQueryData(["auth", "user"], null);
+    }
     return { error };
   };
 
   const value: AuthContextType = {
-    user,
+    user: user ?? null,
     signUp,
     signIn,
     signOut,
-    loading,
+    loading: isLoading,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
