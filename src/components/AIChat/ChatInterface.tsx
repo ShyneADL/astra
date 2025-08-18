@@ -82,6 +82,39 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, containerClassName, showRing = true, ...props }, ref) => {
     const [isFocused, setIsFocused] = React.useState(false);
 
+    // Auto-resize (grow and shrink) including shrink-back when empty
+    const innerRef = React.useRef<HTMLTextAreaElement | null>(null);
+
+    const setRefs = React.useCallback(
+      (node: HTMLTextAreaElement | null) => {
+        innerRef.current = node;
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref && "current" in (ref as any)) {
+          (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
+        }
+      },
+      [ref]
+    );
+
+    const resize = React.useCallback(() => {
+      const el = innerRef.current;
+      if (!el) return;
+      // Reset first so it can shrink if needed
+      el.style.height = "auto";
+      if (!el.value) {
+        // When empty, clear inline height to fall back to CSS (min-h applies)
+        el.style.height = "";
+        return;
+      }
+      el.style.height = `${el.scrollHeight}px`;
+    }, []);
+
+    React.useEffect(() => {
+      // In case value is controlled and changed programmatically
+      resize();
+    }, [props.value, resize]);
+
     return (
       <div className={cn("relative", containerClassName)}>
         <textarea
@@ -90,12 +123,14 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             "transition-all duration-200 ease-in-out",
             "placeholder:text-muted-foreground",
             "disabled:cursor-not-allowed disabled:opacity-50",
+            "resize-none overflow-hidden",
             showRing
               ? "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
               : "",
             className
           )}
-          ref={ref}
+          ref={setRefs}
+          onInput={resize}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           {...props}
@@ -128,7 +163,6 @@ Textarea.displayName = "Textarea";
 
 export default function AnimatedAIChat() {
   const [value, setValue] = useState("");
-  const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [activeSuggestion, setActiveSuggestion] = useState<number>(-1);

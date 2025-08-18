@@ -1,16 +1,16 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
-export const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
+export const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-export const generateResponse = async (prompt) => {
+export const generateResponse = async (prompt: string) => {
   try {
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    return response.text()
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
   } catch (error) {
-    console.error('Error generating AI response:', error)
-    throw error
+    console.error("Error generating AI response:", error);
+    throw error;
   }
-}
+};
