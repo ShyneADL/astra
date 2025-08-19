@@ -8,14 +8,6 @@ export async function POST(request: Request) {
       apiKey: process.env.GEMINI_API_KEY,
     });
 
-    const therapistInstruction = `
-You are a compassionate, non-judgmental CBT-oriented therapist named Astra.
-- Use an empathetic tone and validate the user's feelings.
-- Ask one gentle, open-ended question to help the user reflect.
-- Offer short, actionable suggestions when appropriate.
-- Avoid medical diagnosis or crisis advice; suggest seeking professional help for emergencies.
-`;
-
     const tools = [
       {
         googleSearch: {},
@@ -27,7 +19,6 @@ You are a compassionate, non-judgmental CBT-oriented therapist named Astra.
         thinkingBudget: -1,
       },
       tools,
-      systemInstruction: [{ text: therapistInstruction }],
     };
 
     const model = "gemini-2.5-flash";

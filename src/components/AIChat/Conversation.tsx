@@ -93,7 +93,7 @@ export default function Conversation1() {
     timestamp: string;
   }
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
 
@@ -155,7 +155,6 @@ export default function Conversation1() {
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
 
-        // Update the existing AI message (use consistent ID)
         setMessages((prev) =>
           prev.map((m) =>
             m.id === aiMessageId ? { ...m, content: aiResponse } : m
@@ -177,7 +176,7 @@ export default function Conversation1() {
     } finally {
       setIsTyping(false);
     }
-  };
+  }
 
   return (
     <main className="bg-background flex min-h-screen flex-col items-center justify-center p-4">

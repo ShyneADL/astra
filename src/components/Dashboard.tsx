@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ChatInterface from "./AIChat/ChatInterface";
 import Conversation1 from "./AIChat/Conversation";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -51,6 +52,9 @@ export default function Dashboard() {
               <div className="text-sm text-gray-600">
                 <span className="font-medium">{displayName ?? "Guest"}</span>
               </div>
+              <Link to="/auth" className="text-sm text-gray-600">
+                Login
+              </Link>
             </div>
           </div>
         </div>
