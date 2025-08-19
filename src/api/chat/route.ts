@@ -5,7 +5,7 @@ export async function POST(request: Request) {
     const { message, messages } = await request.json();
 
     const ai = new GoogleGenAI({
-      apiKey: process.env.VITE_GEMINI_API_KEY,
+      apiKey: process.env.GEMINI_API_KEY,
     });
 
     const therapistInstruction = `
@@ -32,7 +32,6 @@ You are a compassionate, non-judgmental CBT-oriented therapist named Astra.
 
     const model = "gemini-2.5-flash";
 
-    // Convert conversation history to Gemini format
     const contents = messages.map((msg: any) => ({
       role: msg.sender === "user" ? "user" : "model",
       parts: [{ text: msg.content }],

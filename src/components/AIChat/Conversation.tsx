@@ -5,7 +5,7 @@ import { Send, Mic, User, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { generateResponse } from "@/lib/gemini"
+import { supabase } from "@/lib/supabase";
 
 const initialMessages = [
   {
@@ -47,7 +47,7 @@ function ChatBubble({ message, isUser, timestamp }: ChatBubbleProps) {
           )}
         >
           {isUser ? (
-            <User className="text-primary h-4 w-4" />
+            <User className="text-black h-4 w-4" />
           ) : (
             <Bot className="text-muted-foreground h-4 w-4" />
           )}
@@ -58,7 +58,7 @@ function ChatBubble({ message, isUser, timestamp }: ChatBubbleProps) {
             className={cn(
               "rounded-2xl px-4 py-2 shadow-sm",
               isUser
-                ? "bg-primary text-primary-foreground rounded-tr-none"
+                ? "bg-primary text-black rounded-tr-none"
                 : "border-border bg-card text-card-foreground rounded-tl-none border"
             )}
           >
@@ -83,69 +83,98 @@ export default function Conversation1() {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+
+  // In component Conversation.tsx — function handleSendMessage
+  interface Message {
+    id: string;
+    content: string;
+    sender: "user" | "ai";
+    timestamp: string;
+  }
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
 
-    const userMessage = {
+    const userMessage: Message = {
       id: Date.now().toString(),
       content: input,
       sender: "user",
       timestamp: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    const currentInput = input;
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput("");
     setIsTyping(true);
 
+    // Create single AI message placeholder
+    const aiMessageId = (Date.now() + 1).toString();
+    const aiMessage: Message = {
+      id: aiMessageId,
+      content: "",
+      sender: "ai",
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, aiMessage]);
+
     try {
-      // Create AI message placeholder
-      const aiMessageId = (Date.now() + 1).toString();
-      const aiMessage = {
-        id: aiMessageId,
-        content: "",
-        sender: "ai",
-        timestamp: new Date().toISOString(),
-      };
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
 
-      setMessages((prev) => [...prev, aiMessage]);
+      const response = await fetch("http://localhost:3001/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          messages: updatedMessages,
+          conversationId,
+        }),
+      });
 
-      // Therapist persona instruction (acts like a default role)
-      const therapistInstruction = `
-You are a compassionate, non-judgmental CBT-oriented therapist named Astra.
-- Use an empathetic tone and validate the user's feelings.
-- Ask one gentle, open-ended question to help the user reflect.
-- Offer short, actionable suggestions when appropriate.
-- Avoid medical diagnosis or crisis advice; suggest seeking professional help for emergencies.
-`;
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to get AI response");
+      }
 
-      // Call Gemini on the client
-      // Make sure you have: import { generateResponse } from "@/lib/gemini";
-      const aiText = await generateResponse(
-        `${therapistInstruction}\n\nUser: ${currentInput}`
-      );
+      const serverConvId = response.headers.get("X-Conversation-Id");
+      if (serverConvId && !conversationId) {
+        setConversationId(serverConvId);
+      }
 
-      // Update the placeholder AI message with the response
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      let aiResponse = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        aiResponse += chunk;
+
+        // Update the existing AI message (use consistent ID)
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMessageId ? { ...m, content: aiResponse } : m
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error:", error);
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === aiMessageId ? { ...msg, content: aiText } : msg
+          msg.id === aiMessageId
+            ? {
+                ...msg,
+                content: "Sorry, I encountered an error. Please try again.",
+              }
+            : msg
         )
       );
-
-      setIsTyping(false);
-    } catch (error) {
-      console.error("Error sending message:", error);
-
-      const errorMessage = {
-        id: (Date.now() + 1).toString(),
-        content: "Sorry, I encountered an error. Please try again.",
-        sender: "ai",
-        timestamp: new Date().toISOString(),
-      };
-
-      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
     }
   };
@@ -154,10 +183,10 @@ You are a compassionate, non-judgmental CBT-oriented therapist named Astra.
     <main className="bg-background flex min-h-screen flex-col items-center justify-center p-4">
       <div className="border-border bg-card w-full max-w-2xl overflow-hidden rounded-xl border shadow-lg">
         <div className="bg-primary p-4">
-          <h1 className="text-primary-foreground text-lg font-semibold">
+          <h1 className="dark:text-primary-foreground text-lg font-semibold">
             AI Assistant
           </h1>
-          <p className="text-primary-foreground/80 text-sm">
+          <p className="dark:text-primary-foreground/80 text-sm">
             Always here to help you
           </p>
         </div>
