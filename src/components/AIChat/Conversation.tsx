@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Mic, User, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +84,128 @@ export default function Conversation1() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+   const recognitionRef = useRef<any>(null);
+    const isListeningRef = useRef(false);
+    const stopRequestedRef = useRef(false);
+
+  useEffect(() => {
+        isListeningRef.current = isListening;
+    }, [isListening]);
+
+    useEffect(() => {
+        const w = window as any;
+        const Recognition = w.SpeechRecognition || w.webkitSpeechRecognition;
+        if (!Recognition) {
+            console.warn("SpeechRecognition API not supported in this browser");
+            return;
+        }
+
+        const recognition = new Recognition();
+        recognition.lang = "en-US";
+        recognition.continuous = true; // keep listening across multiple phrases
+        recognition.interimResults = true;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+            setIsListening(true);
+        };
+
+        recognition.onresult = (event: any) => {
+            let finalTranscript = "";
+            let interimTranscript = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const result = event.results[i];
+                if (result.isFinal) finalTranscript += result[0].transcript;
+                else interimTranscript += result[0].transcript;
+            }
+
+            // If you want to append the final transcript to your message input, do it here:
+            // setInput((prev: string) => (prev + " " + finalTranscript).trim());
+            // You can also surface interimTranscript in the UI if desired.
+        };
+
+        recognition.onerror = (e: any) => {
+            console.warn("SpeechRecognition error:", e.error);
+            // Recover on transient errors if user didn't click stop
+            if (!stopRequestedRef.current && (e.error === "no-speech" || e.error === "network")) {
+                try {
+                    recognition.stop(); // triggers onend where we auto-restart
+                } catch {}
+            } else {
+                // Permission or user stop – don't auto-restart
+                stopRequestedRef.current = true;
+            }
+        };
+
+        recognition.onend = () => {
+            // Only auto-restart if the user didn't explicitly stop
+            if (!stopRequestedRef.current) {
+                try {
+                    recognition.start();
+                } catch {
+                    // Some browsers need a tiny delay before restarting
+                    setTimeout(() => {
+                        try {
+                            recognition.start();
+                        } catch {}
+                    }, 250);
+                }
+            } else {
+                setIsListening(false);
+            }
+        };
+
+        recognitionRef.current = recognition;
+
+        return () => {
+            try {
+                recognition.onstart = null;
+                recognition.onresult = null;
+                recognition.onerror = null;
+                recognition.onend = null;
+                recognition.stop();
+            } catch {}
+        };
+    }, []);
+
+    const startListening = useCallback(async () => {
+        const w = window as any;
+        if (!w.SpeechRecognition && !w.webkitSpeechRecognition) return;
+
+        stopRequestedRef.current = false;
+
+        // Prompt for mic permission first to avoid immediate end
+        try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+            console.warn("Microphone permission denied or unavailable", err);
+            setIsListening(false);
+            return;
+        }
+
+        try {
+            recognitionRef.current?.start();
+        } catch {
+            // Ignore InvalidStateError if already started
+        }
+    }, []);
+
+    const stopListening = useCallback(() => {
+        stopRequestedRef.current = true;
+        try {
+            recognitionRef.current?.stop();
+        } catch {}
+    }, []);
+
+    const toggleListening = useCallback(() => {
+        if (isListeningRef.current) {
+            stopListening();
+        } else {
+            startListening();
+        }
+    }, [startListening, stopListening]);
 
   // In component Conversation.tsx — function handleSendMessage
   interface Message {
@@ -92,6 +214,7 @@ export default function Conversation1() {
     sender: "user" | "ai";
     timestamp: string;
   }
+
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -178,6 +301,8 @@ export default function Conversation1() {
     }
   }
 
+  
+
   return (
     <main className="bg-background flex min-h-screen flex-col items-center justify-center p-4">
       <div className="border-border bg-card w-full max-w-2xl overflow-hidden rounded-xl border shadow-lg">
@@ -237,9 +362,9 @@ export default function Conversation1() {
               >
                 <Send className="h-4 w-4" />
               </Button>
-              <Button type="button" size="icon" variant="outline">
-                <Mic className="h-4 w-4" />
-              </Button>
+              <Button type="button" size="icon" variant={listening ? "destructive" : "outline"} onClick={toggleListening} title={listening ? "Stop voice input" : "Start voice input"}>
+  <Mic className={`h-4 w-4 ${listening ? "animate-pulse" : ""}`} />
+</Button>
             </form>
           </div>
         </div>

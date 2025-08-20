@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ChatInterface from "./AIChat/ChatInterface";
+import VoiceChat from "./AIChat/VoiceChat";
 import Conversation1 from "./AIChat/Conversation";
 import { Link } from "react-router-dom";
 
@@ -46,7 +47,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Astrala</h1>
+              <h1 className="text-2xl font-bold text-gray-900">astra</h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
@@ -63,6 +64,7 @@ export default function Dashboard() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="bg-white rounded-lg shadow-sm border h-[calc(100vh-200px)]">
+            {/* <VoiceChat /> */}
             <Conversation1 />
           </div>
         </div>
