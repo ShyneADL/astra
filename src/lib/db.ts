@@ -1,7 +1,11 @@
 import { supabase } from "./supabase";
 
 // Save a chat message
-export const saveChatMessage = async (sessionId, role, content) => {
+export const saveChatMessage = async (
+  sessionId: string,
+  role: string,
+  content: string
+) => {
   const { data, error } = await supabase.from("chat_messages").insert({
     session_id: sessionId,
     user_id: (await supabase.auth.getUser()).data.user?.id,
@@ -14,7 +18,7 @@ export const saveChatMessage = async (sessionId, role, content) => {
 };
 
 // Get chat messages for a session
-export const getChatMessages = async (sessionId) => {
+export const getChatMessages = async (sessionId: string) => {
   const { data, error } = await supabase
     .from("chat_messages")
     .select("*")
@@ -46,6 +50,26 @@ export const getUserChatSessions = async () => {
     .from("chat_sessions")
     .select("*")
     .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
+export const getChatSessionByTitle = async (title: string) => {
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user?.id;
+  if (!userId) {
+    throw new Error("Not authenticated");
+  }
+
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("title", title)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (error) throw error;
   return data;

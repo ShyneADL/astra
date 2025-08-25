@@ -1,8 +1,58 @@
 import { GoogleGenAI } from "@google/genai";
 
+function cleanGeneratedTitle(raw: string, fallback: string): string {
+  const cleaned = raw.trim().replace(/^["'#*\-–\s]+|["'#*\-–\s]+$/g, "");
+  return cleaned.slice(0, 80) || fallback;
+}
+
 export async function POST(request: Request) {
   try {
-    const { message, messages } = await request.json();
+    const { message, messages, wantTitle } = await request.json();
+
+    // If only a title is requested, generate and return it as JSON (non-streaming).
+    if (wantTitle) {
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY,
+      });
+
+      // Use the incoming message as the base for title generation
+      const baseText = (typeof message === "string" ? message : "") || "";
+      const fallback = baseText.trim().slice(0, 60) || "New Chat";
+
+      const titlePrompt = [
+        "Summarize the following user message into a very short, human-readable chat title:",
+        "- Max 8 words",
+        "- No surrounding quotes",
+        "- No trailing punctuation",
+        "",
+        `Message: """${baseText}"""`,
+        "",
+        "Title:",
+      ].join("\n");
+
+      // Stream the title, then join to a single string to minimize API surface differences
+      const titleStream = await ai.models.generateContentStream({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: titlePrompt }],
+          },
+        ],
+      });
+
+      let titleText = "";
+      for await (const chunk of titleStream) {
+        if ((chunk as any).text) {
+          titleText += (chunk as any).text;
+        }
+      }
+
+      const title = cleanGeneratedTitle(titleText, fallback);
+      return new Response(JSON.stringify({ title }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     const ai = new GoogleGenAI({
       apiKey: process.env.GEMINI_API_KEY,
@@ -45,8 +95,8 @@ export async function POST(request: Request) {
       async start(controller) {
         try {
           for await (const chunk of response) {
-            if (chunk.text) {
-              controller.enqueue(new TextEncoder().encode(chunk.text));
+            if ((chunk as any).text) {
+              controller.enqueue(new TextEncoder().encode((chunk as any).text));
             }
           }
           controller.close();
@@ -73,3 +123,8 @@ export async function POST(request: Request) {
     );
   }
 }
+
+
+
+
+
