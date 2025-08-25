@@ -7,8 +7,10 @@ function cleanGeneratedTitle(raw: string, fallback: string): string {
 
 export async function POST(request: Request) {
   try {
-    const { message, messages, wantTitle } = await request.json();
+    const { message, messages, wantTitle, conversationId } =
+      await request.json();
 
+    let generatedTitle = null;
     // If only a title is requested, generate and return it as JSON (non-streaming).
     if (wantTitle) {
       const ai = new GoogleGenAI({
@@ -48,10 +50,7 @@ export async function POST(request: Request) {
         }
       }
 
-      const title = cleanGeneratedTitle(titleText, fallback);
-      return new Response(JSON.stringify({ title }), {
-        headers: { "Content-Type": "application/json" },
-      });
+      generatedTitle = cleanGeneratedTitle(titleText, fallback);
     }
 
     const ai = new GoogleGenAI({
@@ -110,6 +109,8 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "Transfer-Encoding": "chunked",
+        "X-Conversation-Id": conversationId || "",
+        ...(generatedTitle ? { "X-Generated-Title": generatedTitle } : {}),
       },
     });
   } catch (error) {
@@ -123,8 +124,3 @@ export async function POST(request: Request) {
     );
   }
 }
-
-
-
-
-

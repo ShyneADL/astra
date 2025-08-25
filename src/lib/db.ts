@@ -17,7 +17,6 @@ export const saveChatMessage = async (
   return data;
 };
 
-// Get chat messages for a session
 export const getChatMessages = async (sessionId: string) => {
   const { data, error } = await supabase
     .from("chat_messages")
@@ -30,7 +29,7 @@ export const getChatMessages = async (sessionId: string) => {
 };
 
 // Create a new chat session
-export const createChatSession = async (title = "New Chat") => {
+export const createChatSession = async (title: string) => {
   const { data, error } = await supabase
     .from("chat_sessions")
     .insert({
@@ -44,18 +43,7 @@ export const createChatSession = async (title = "New Chat") => {
   return data;
 };
 
-// Get user's chat sessions
-export const getUserChatSessions = async () => {
-  const { data, error } = await supabase
-    .from("chat_sessions")
-    .select("*")
-    .order("updated_at", { ascending: false });
-
-  if (error) throw error;
-  return data;
-};
-
-export const getChatSessionByTitle = async (title: string) => {
+export const getChatSessionById = async (id: string) => {
   const { data: auth } = await supabase.auth.getUser();
   const userId = auth.user?.id;
   if (!userId) {
@@ -66,7 +54,7 @@ export const getChatSessionByTitle = async (title: string) => {
     .from("chat_sessions")
     .select("*")
     .eq("user_id", userId)
-    .eq("title", title)
+    .eq("id", id)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();

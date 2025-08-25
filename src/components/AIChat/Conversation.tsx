@@ -1,12 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Mic, User, Bot } from "lucide-react";
+import { Send, Mic } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
-import { createChatSession } from "@/lib/db";
+import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
+import {
+  createChatSession,
+  getChatMessages,
+  getChatSessionById,
+} from "@/lib/db";
+import ChatBubble from "./ChatBubble";
 
 const initialMessages = [
   {
@@ -18,69 +24,7 @@ const initialMessages = [
   },
 ];
 
-interface ChatBubbleProps {
-  message: string;
-  isUser: boolean;
-  timestamp: Date;
-}
-
-function ChatBubble({ message, isUser, timestamp }: ChatBubbleProps) {
-  const formattedTime = timestamp.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  return (
-    <div
-      className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}
-    >
-      <div
-        className={cn(
-          "flex max-w-[80%] items-start space-x-2",
-          isUser && "flex-row-reverse space-x-reverse"
-        )}
-      >
-        <div
-          className={cn(
-            "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
-            isUser ? "bg-primary/10" : "bg-muted"
-          )}
-        >
-          {isUser ? (
-            <User className="text-black h-4 w-4" />
-          ) : (
-            <Bot className="text-muted-foreground h-4 w-4" />
-          )}
-        </div>
-
-        <div className="flex flex-col">
-          <div
-            className={cn(
-              "rounded-2xl px-4 py-2 shadow-sm",
-              isUser
-                ? "bg-primary text-black rounded-tr-none"
-                : "border-border bg-card text-card-foreground rounded-tl-none border"
-            )}
-          >
-            <p className="whitespace-pre-wrap">{message}</p>
-          </div>
-
-          <span
-            className={cn(
-              "text-muted-foreground mt-1 text-xs",
-              isUser ? "text-right" : "text-left"
-            )}
-          >
-            {formattedTime}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function Conversation1() {
+export default function Conversation() {
   const [messages, setMessages] = useState(initialMessages);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -88,9 +32,13 @@ export default function Conversation1() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [isListening, setIsListening] = useState(false);
+
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
   const stopRequestedRef = useRef(false);
+
+  const { selectedId } = useSelectedConversation();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     isListeningRef.current = isListening;
@@ -122,10 +70,6 @@ export default function Conversation1() {
         if (result.isFinal) finalTranscript += result[0].transcript;
         else interimTranscript += result[0].transcript;
       }
-
-      // If you want to append the final transcript to your message input, do it here:
-      // setInput((prev: string) => (prev + " " + finalTranscript).trim());
-      // You can also surface interimTranscript in the UI if desired.
     };
 
     recognition.onerror = (e: any) => {
@@ -212,13 +156,66 @@ export default function Conversation1() {
     }
   }, [startListening, stopListening]);
 
-  // In component Conversation.tsx — function handleSendMessage
   interface Message {
     id: string;
     content: string;
     sender: "user" | "ai";
     timestamp: string;
   }
+
+  useEffect(() => {
+    if (!selectedId) return;
+
+    let cancelled = false;
+    (async () => {
+      setIsTyping(true);
+      try {
+        const session = await getChatSessionById(selectedId);
+        if (!session?.id) {
+          console.warn("No session found for id:", selectedId);
+          if (!cancelled) {
+            setMessages([]);
+            setSessionId(null);
+            setConversationId(null);
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          setSessionId(session.id);
+          setConversationId(session.id);
+        }
+
+        const data = await getChatMessages(session.id);
+
+        const loaded =
+          (data || []).map((row: any) => {
+            const senderRaw = row.role ?? "assistant";
+            const sender =
+              senderRaw === "assistant" || senderRaw === "ai" ? "ai" : "user";
+            return {
+              id: String(row.id),
+              content: row.content,
+              sender,
+              timestamp: row.created_at,
+            };
+          }) ?? [];
+
+        if (!cancelled) {
+          setMessages(loaded);
+        }
+      } catch (err) {
+        console.error("Failed to load conversation:", err);
+        if (!cancelled) setMessages([]);
+      } finally {
+        if (!cancelled) setIsTyping(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -230,29 +227,6 @@ export default function Conversation1() {
       sender: "user",
       timestamp: new Date().toISOString(),
     };
-
-    // Create a chat session on the first user message (before clearing input)
-    if (!sessionId) {
-      const draftTitle = (input || userMessage.content).trim();
-      let title = draftTitle.slice(0, 60) || "New Chat";
-      try {
-        const res = await fetch("http://localhost:3001/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: draftTitle, wantTitle: true }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (
-            data?.title &&
-            typeof data.title === "string" &&
-            data.title.trim()
-          ) {
-            title = data.title;
-          }
-        }
-      } catch (_err) {}
-    }
 
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
@@ -270,6 +244,9 @@ export default function Conversation1() {
     setMessages((prev) => [...prev, aiMessage]);
 
     try {
+      // Single-cycle setup: compute the draft title and whether we need a server-generated title
+      const draftTitle = (input || userMessage.content).trim();
+      const needTitle = !sessionId;
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
@@ -282,6 +259,8 @@ export default function Conversation1() {
         body: JSON.stringify({
           messages: updatedMessages,
           conversationId,
+          message: draftTitle,
+          wantTitle: needTitle,
         }),
       });
 
@@ -290,8 +269,23 @@ export default function Conversation1() {
       }
 
       const serverConvId = response.headers.get("X-Conversation-Id");
+      const generatedTitle = response.headers.get("X-Generated-Title");
+
       if (serverConvId && !conversationId) {
         setConversationId(serverConvId);
+      }
+
+      if (needTitle && generatedTitle && !sessionId) {
+        try {
+          const newSession = await createChatSession(generatedTitle);
+          setSessionId(newSession.id);
+          setConversationId(newSession.id);
+
+          // Refresh the sidebar to show the new conversation
+          queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+        } catch (error) {
+          console.error("Failed to create session with title:", error);
+        }
       }
 
       const reader = response.body.getReader();
@@ -329,79 +323,75 @@ export default function Conversation1() {
   }
 
   return (
-    <main className="bg-background flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="border-border bg-card w-full max-w-2xl overflow-hidden rounded-xl border shadow-lg">
-        <div className="bg-primary p-4">
-          <h1 className="dark:text-primary-foreground text-lg font-semibold">
-            AI Assistant
-          </h1>
-          <p className="dark:text-primary-foreground/80 text-sm">
-            Always here to help you
-          </p>
+    <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
+      <div className="bg-primary p-4">
+        <h1 className="dark:text-primary-foreground text-lg font-semibold">
+          AI Assistant
+        </h1>
+        <p className="dark:text-primary-foreground/80 text-sm">
+          Always here to help you
+        </p>
+      </div>
+
+      <div className="flex h-[75vh] flex-col">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {messages.map((message) => (
+            <ChatBubble
+              key={message.id}
+              message={message.content}
+              isUser={message.sender === "user"}
+              timestamp={new Date(message.timestamp)}
+            />
+          ))}
+
+          {isTyping && (
+            <div className="text-muted-foreground flex items-center space-x-2 text-sm">
+              <div className="flex space-x-1">
+                <div
+                  className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
+                  style={{ animationDelay: "0ms" }}
+                ></div>
+                <div
+                  className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
+                  style={{ animationDelay: "150ms" }}
+                ></div>
+                <div
+                  className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
+                  style={{ animationDelay: "300ms" }}
+                ></div>
+              </div>
+              <span>AI is typing...</span>
+            </div>
+          )}
         </div>
 
-        <div className="flex h-[600px] flex-col">
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            {messages.map((message) => (
-              <ChatBubble
-                key={message.id}
-                message={message.content}
-                isUser={message.sender === "user"}
-                timestamp={new Date(message.timestamp)}
-              />
-            ))}
-
-            {isTyping && (
-              <div className="text-muted-foreground flex items-center space-x-2 text-sm">
-                <div className="flex space-x-1">
-                  <div
-                    className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
-                    style={{ animationDelay: "0ms" }}
-                  ></div>
-                  <div
-                    className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
-                    style={{ animationDelay: "150ms" }}
-                  ></div>
-                  <div
-                    className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
-                    style={{ animationDelay: "300ms" }}
-                  ></div>
-                </div>
-                <span>AI is typing...</span>
-              </div>
-            )}
-          </div>
-
-          <div className="border-border border-t p-4">
-            <form onSubmit={handleSendMessage} className="flex space-x-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                className="bg-primary hover:bg-primary/90"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant={listening ? "destructive" : "outline"}
-                onClick={toggleListening}
-                title={listening ? "Stop voice input" : "Start voice input"}
-              >
-                <Mic
-                  className={`h-4 w-4 ${listening ? "animate-pulse" : ""}`}
-                />
-              </Button>
-            </form>
-          </div>
+        <div className="border-border border-t p-4">
+          <form onSubmit={handleSendMessage} className="flex space-x-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-1"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant={listening ? "destructive" : "outline"}
+              onClick={toggleListening}
+              title={listening ? "Stop voice input" : "Start voice input"}
+            >
+              <Mic className={`h-4 w-4 ${listening ? "animate-pulse" : ""}`} />
+            </Button>
+          </form>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { SelectedConversationProvider } from "@/contexts/SelectedConversationContext";
 import AuthPage from "./components/Auth/AuthPage";
 import Dashboard from "./components/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -28,14 +29,14 @@ const router = createBrowserRouter([
   },
 ]);
 
-function App() {
+export default function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <RouterProvider router={router} />
+        <SelectedConversationProvider>
+          <RouterProvider router={router} />
+        </SelectedConversationProvider>
       </AuthProvider>
     </div>
   );
 }
-
-export default App;

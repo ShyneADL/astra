@@ -8,47 +8,40 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 import { supabase } from "@/lib/supabase";
+import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
 
-async function fetchConversations() {
-  const { data, error } = await supabase.from("chat_sessions").select("title");
-  if (error) {
-    throw new Error(error.message);
-  }
-  return data.map((conv: { title: string }) => conv.title);
-}
+type ConversationItem = {
+  id: string;
+  title: string;
+};
 
 export function AppSidebar() {
+  const { setSelectedId } = useSelectedConversation();
   const queryClient = useQueryClient();
 
   const {
-    data: conversationTitles,
+    data: conversations,
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["chat_sessions"] as const,
-    queryFn: fetchConversations,
+    queryKey: ["chat_sessions"],
+    queryFn: async (): Promise<ConversationItem[]> => {
+      const { data, error } = await supabase
+        .from("chat_sessions")
+        .select("id, title")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
   });
 
   useEffect(() => {
     const channel = supabase
-      .channel("chat_sessions-changes")
+      .channel("chat_sessions_changes")
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_sessions" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "chat_sessions" },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "chat_sessions" },
+        { event: "*", schema: "public", table: "chat_sessions" },
         () => {
           queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
         }
@@ -65,23 +58,25 @@ export function AppSidebar() {
       <SidebarHeader />
       <SidebarContent>
         <SidebarGroup>
-          <h3 className="text-sm font-bold text-gray-600 ">Conversations</h3>
+          <h3 className="text-sm font-bold text-gray-600 mb-2">
+            Conversations
+          </h3>
           {isLoading && <p className="text-sm text-gray-500">Loading...</p>}
           {isError && (
             <p className="text-sm text-red-500">Failed to load conversations</p>
           )}
           <ul className="space-y-2">
-            {conversationTitles?.map((title, index) => (
+            {conversations?.map((conversation) => (
               <li
-                key={index}
-                className="text-sm text-gray-800 py-3 hover:bg-gray-100"
+                key={conversation.id}
+                onClick={() => setSelectedId(conversation.id)}
+                className="text-sm text-gray-800 py-2 px-3 rounded-md hover:bg-gray-100 cursor-pointer"
               >
-                {title}
+                {conversation.title}
               </li>
             ))}
           </ul>
         </SidebarGroup>
-        <SidebarGroup />
       </SidebarContent>
       <SidebarFooter />
     </Sidebar>
