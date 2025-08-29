@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Mic } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
 import {
@@ -13,148 +12,36 @@ import {
   getChatSessionById,
 } from "@/lib/db";
 import ChatBubble from "./ChatBubble";
+import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 
-const initialMessages = [
-  {
-    id: "1",
-    content:
-      "Hi there! My name is Astra and I am your emotional support buddy today. How can I assist you?",
-    sender: "ai",
-    timestamp: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
-  },
-];
+interface Message {
+  id: string;
+  content: string;
+  sender: "user" | "ai";
+  timestamp: string;
+}
 
-export default function Conversation() {
-  const [messages, setMessages] = useState(initialMessages);
+interface ConversationProps {
+  initialMessages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+}
+
+export default function Conversation({
+  initialMessages,
+  setMessages,
+}: ConversationProps) {
+  const [messages, setLocalMessages] = useState<Message[]>(initialMessages);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [listening, setListening] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-
-  const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
-  const stopRequestedRef = useRef(false);
+  const { textareaRef, adjustHeight } = useAutoResizeTextarea({
+    minHeight: 24,
+    maxHeight: 200,
+  });
 
   const { selectedId } = useSelectedConversation();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
-
-  useEffect(() => {
-    const w = window as any;
-    const Recognition = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!Recognition) {
-      console.warn("SpeechRecognition API not supported in this browser");
-      return;
-    }
-
-    const recognition = new Recognition();
-    recognition.lang = "en-US";
-    recognition.continuous = true; // keep listening across multiple phrases
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onresult = (event: any) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        if (result.isFinal) finalTranscript += result[0].transcript;
-        else interimTranscript += result[0].transcript;
-      }
-    };
-
-    recognition.onerror = (e: any) => {
-      console.warn("SpeechRecognition error:", e.error);
-      // Recover on transient errors if user didn't click stop
-      if (
-        !stopRequestedRef.current &&
-        (e.error === "no-speech" || e.error === "network")
-      ) {
-        try {
-          recognition.stop(); // triggers onend where we auto-restart
-        } catch {}
-      } else {
-        // Permission or user stop – don't auto-restart
-        stopRequestedRef.current = true;
-      }
-    };
-
-    recognition.onend = () => {
-      // Only auto-restart if the user didn't explicitly stop
-      if (!stopRequestedRef.current) {
-        try {
-          recognition.start();
-        } catch {
-          // Some browsers need a tiny delay before restarting
-          setTimeout(() => {
-            try {
-              recognition.start();
-            } catch {}
-          }, 250);
-        }
-      } else {
-        setIsListening(false);
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    return () => {
-      try {
-        recognition.onstart = null;
-        recognition.onresult = null;
-        recognition.onerror = null;
-        recognition.onend = null;
-        recognition.stop();
-      } catch {}
-    };
-  }, []);
-
-  const startListening = useCallback(async () => {
-    const w = window as any;
-    if (!w.SpeechRecognition && !w.webkitSpeechRecognition) return;
-
-    stopRequestedRef.current = false;
-
-    // Prompt for mic permission first to avoid immediate end
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      console.warn("Microphone permission denied or unavailable", err);
-      setIsListening(false);
-      return;
-    }
-
-    try {
-      recognitionRef.current?.start();
-    } catch {
-      // Ignore InvalidStateError if already started
-    }
-  }, []);
-
-  const stopListening = useCallback(() => {
-    stopRequestedRef.current = true;
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-  }, []);
-
-  const toggleListening = useCallback(() => {
-    if (isListeningRef.current) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  }, [startListening, stopListening]);
 
   interface Message {
     id: string;
@@ -188,11 +75,13 @@ export default function Conversation() {
 
         const data = await getChatMessages(session.id);
 
-        const loaded =
+        const loaded: Message[] =
           (data || []).map((row: any) => {
             const senderRaw = row.role ?? "assistant";
             const sender =
-              senderRaw === "assistant" || senderRaw === "ai" ? "ai" : "user";
+              senderRaw === "assistant" || senderRaw === "ai"
+                ? ("ai" as const)
+                : ("user" as const);
             return {
               id: String(row.id),
               content: row.content,
@@ -322,17 +211,22 @@ export default function Conversation() {
     }
   }
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    adjustHeight();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim()) {
+        handleSendMessage(e);
+      }
+    }
+  };
+
   return (
     <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
-      <div className="bg-primary p-4">
-        <h1 className="dark:text-primary-foreground text-lg font-semibold">
-          AI Assistant
-        </h1>
-        <p className="dark:text-primary-foreground/80 text-sm">
-          Always here to help you
-        </p>
-      </div>
-
       <div className="flex h-[75vh] flex-col">
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {messages.map((message) => (
@@ -367,9 +261,11 @@ export default function Conversation() {
 
         <div className="border-border border-t p-4">
           <form onSubmit={handleSendMessage} className="flex space-x-2">
-            <Input
+            <textarea
+              ref={textareaRef}
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
               placeholder="Type your message..."
               className="flex-1"
             />
@@ -379,15 +275,6 @@ export default function Conversation() {
               className="bg-primary hover:bg-primary/90"
             >
               <Send className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              size="icon"
-              variant={listening ? "destructive" : "outline"}
-              onClick={toggleListening}
-              title={listening ? "Stop voice input" : "Start voice input"}
-            >
-              <Mic className={`h-4 w-4 ${listening ? "animate-pulse" : ""}`} />
             </Button>
           </form>
         </div>

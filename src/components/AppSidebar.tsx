@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Sidebar,
@@ -7,13 +7,6 @@ import {
   SidebarGroup,
   SidebarHeader,
 } from "@/components/ui/sidebar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";

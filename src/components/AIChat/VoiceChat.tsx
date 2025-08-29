@@ -87,7 +87,7 @@ export default function VoiceChat() {
     <div className="flex h-full w-full flex-col items-center justify-center">
       <div className="relative mb-12">
         <img
-          src="/logo.png"
+          src="/logo-large.png"
           alt="AI Assistant"
           className="h-32 w-32 rounded-full object-cover shadow-lg"
         />
@@ -101,9 +101,9 @@ export default function VoiceChat() {
         >
           {isCalling && (
             <>
-              <div className="absolute h-40 w-40 animate-ping rounded-full border border-primary/30" />
-              <div className="absolute h-44 w-44 animate-ping rounded-full border border-primary/20 animation-delay-200" />
-              <div className="absolute h-48 w-48 animate-ping rounded-full border border-primary/10 animation-delay-400" />
+              <div className="absolute h-40 w-40 animate-ping rounded-full border border-primary/60" />
+              <div className="absolute h-44 w-44 animate-ping rounded-full border border-primary/50 animation-delay-200" />
+              <div className="absolute h-48 w-48 animate-ping rounded-full border border-primary/40 animation-delay-400" />
             </>
           )}
         </div>
@@ -122,7 +122,7 @@ export default function VoiceChat() {
 
       {/* Status Text */}
       <p className="mb-8 text-sm font-medium text-gray-600">
-        {callStatus === "idle" && "Ready to chat"}
+        {callStatus === "idle" && "Ready to talk"}
         {callStatus === "connecting" && "Connecting..."}
         {callStatus === "in_call" && "Listening..."}
         {callStatus === "error" && "Something went wrong"}
@@ -134,17 +134,17 @@ export default function VoiceChat() {
         size="lg"
         variant={isCalling ? "destructive" : "default"}
         className={cn(
-          "h-16 w-16 rounded-full p-0 transition-all duration-300",
+          "h-16 w-16 rounded-full p-0 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-sm",
           isCalling
             ? "bg-red-500 hover:bg-red-600"
-            : "bg-primary hover:bg-primary/90",
+            : "bg-white hover:bg-white/90",
           callStatus === "connecting" && "animate-pulse"
         )}
       >
         {isCalling ? (
           <Square className="h-6 w-6" />
         ) : (
-          <Mic className="h-6 w-6" />
+          <Mic className="h-6 w-6 text-black" />
         )}
       </Button>
     </div>

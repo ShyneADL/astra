@@ -31,7 +31,7 @@ function ChatBubble({ message, isUser, timestamp }: ChatBubbleProps) {
           )}
         >
           {isUser ? (
-            <User className="text-black h-4 w-4" />
+            <User className="text-white h-4 w-4" />
           ) : (
             <Bot className="text-muted-foreground h-4 w-4" />
           )}
