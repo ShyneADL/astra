@@ -1,79 +1,79 @@
 // File: Dashboard.tsx — function Dashboard
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-
-import { supabase } from "@/lib/supabase";
-import ChatInterface from "./AIChat/ChatInterface";
 import VoiceChat from "./AIChat/VoiceChat";
 import Conversation from "./AIChat/Conversation";
 import { SelectedConversationProvider } from "@/contexts/SelectedConversationContext";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 export default function Dashboard() {
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [chatMode, setChatMode] = useState<"text" | "voice">("voice");
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const resolveName = (user: any | null) => {
-      const nameFromMeta =
-        user?.user_metadata?.full_name || user?.user_metadata?.name || null;
-      return nameFromMeta || user?.email || null;
-    };
-
-    const loadUser = async () => {
-      const { data: { user } = { user: null } } = await supabase.auth.getUser();
-      if (isMounted) {
-        setDisplayName(resolveName(user));
-      }
-    };
-
-    loadUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (isMounted) {
-        setDisplayName(resolveName(session?.user ?? null));
-      }
-    });
-
-    return () => {
-      isMounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  const handleModeChange = (value: "text" | "voice") => {
+    setChatMode(value);
+  };
 
   return (
     <SelectedConversationProvider>
       <SidebarProvider>
-        <AppSidebar />
+        <AppSidebar onConversationSelect={() => setChatMode("text")} />
         <main className="min-h-screen bg-gray-50 flex-1">
           <header className="bg-white shadow-sm border-b">
-            <SidebarTrigger />
-            <div className=" px-4 sm:px-6 lg:px-8">
+            <div className="px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between items-center py-4">
-                <div className="flex items-center">
-                  <h1 className="text-2xl font-bold text-gray-900">Astra</h1>
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="text-sm text-gray-600">
-                    <span className="font-medium">
-                      {displayName ?? "Guest"}
-                    </span>
+                <SidebarTrigger />
+                <div className="flex items-center gap-2">
+                  <Select value={chatMode} onValueChange={handleModeChange}>
+                    <SelectTrigger className="w-full text-sm">
+                      <SelectValue placeholder="Select chat mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Text Chat</SelectItem>
+                      <SelectItem value="voice">Voice Chat</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="overflow-hidden">
+                    <div
+                      className={`transform transition-all duration-300 ease-in-out ${
+                        chatMode === "text"
+                          ? "translate-x-0 opacity-100"
+                          : "translate-x-full opacity-0"
+                      }`}
+                    >
+                      <button className="bg-primary rounded-sm whitespace-nowrap py-2 px-4 text-sm text-black cursor-pointer hover:bg-primary/90">
+                        New Chat
+                      </button>
+                    </div>
                   </div>
-                  <Link to="/auth" className="text-sm text-gray-600">
-                    Login
-                  </Link>
                 </div>
               </div>
             </div>
           </header>
-
           <div className="w-full max-h-[90vh] h-full py-6 sm:px-6 lg:px-8">
-            {/* <VoiceChat /> */}
-            <Conversation />
+            <div className="relative w-full h-full">
+              <div
+                className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${
+                  chatMode === "voice" ? "opacity-100 z-10" : "opacity-0 z-0"
+                }`}
+              >
+                <VoiceChat />
+              </div>
+              <div
+                className={`absolute inset-0 transition-opacity duration-300 ease-in-out ${
+                  chatMode === "text" ? "opacity-100 z-10" : "opacity-0 z-0"
+                }`}
+              >
+                <Conversation />
+              </div>
+            </div>
           </div>
         </main>
       </SidebarProvider>

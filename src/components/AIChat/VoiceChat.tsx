@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
-import { Phone, PhoneOff } from "lucide-react";
-import {useConversation} from '@elevenlabs/react'
+import { Mic, Square } from "lucide-react";
+import { useConversation } from "@elevenlabs/react";
+import { cn } from "@/lib/utils";
 
 export default function VoiceChat() {
   type CallStatus = "idle" | "connecting" | "in_call" | "error";
@@ -28,9 +29,6 @@ export default function VoiceChat() {
     onMessage: (_msg) => {
       // Optional: handle transcriptions or agent messages here
     },
-    // You can pass overrides or clientTools here if needed
-    // overrides: { agent: { language: "en" } }
-    // clientTools: { /* tools exposed in ElevenLabs UI */ }
   });
 
   async function startCall() {
@@ -38,7 +36,6 @@ export default function VoiceChat() {
     setCallStatus("connecting");
 
     try {
-      // Prompt for mic access before starting the session
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setCallStatus("error");
@@ -46,8 +43,9 @@ export default function VoiceChat() {
     }
 
     try {
-      // Get the authenticated user's id from Supabase
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       const userId = user?.id ?? "anonymous";
 
       await conversation.startSession({
@@ -55,19 +53,15 @@ export default function VoiceChat() {
         userId,
         connectionType: "webrtc",
       });
-      // onConnect will flip isCalling and callStatus when connected
     } catch (e) {
       console.error(e);
       setCallStatus("error");
-      // Best-effort cleanup
       await endCall();
     }
   }
 
   async function endCall() {
     try {
-      // The SDK provides connection management; attempt common session termination methods.
-      // Optional chaining with 'as any' avoids type errors if a method doesn't exist.
       await (conversation as any).endSession?.();
       await (conversation as any).stopSession?.();
       await (conversation as any).disconnect?.();
@@ -82,7 +76,6 @@ export default function VoiceChat() {
     else startCall();
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       endCall();
@@ -91,38 +84,69 @@ export default function VoiceChat() {
   }, []);
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between rounded-lg border p-4">
-        <div className="flex flex-col">
-          <span className="text-sm font-medium">Voice Agent</span>
-          <span className="text-xs text-muted-foreground">
-            {callStatus === "idle" && "Idle"}
-            {callStatus === "connecting" && "Connecting..."}
-            {callStatus === "in_call" && "In call"}
-            {callStatus === "error" && "Call error — try again"}
-          </span>
+    <div className="flex h-full w-full flex-col items-center justify-center">
+      <div className="relative mb-12">
+        <img
+          src="/logo.png"
+          alt="AI Assistant"
+          className="h-32 w-32 rounded-full object-cover shadow-lg"
+        />
+
+        {/* Audio Visualizer Rings */}
+        <div
+          className={cn(
+            "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+            "pointer-events-none"
+          )}
+        >
+          {isCalling && (
+            <>
+              <div className="absolute h-40 w-40 animate-ping rounded-full border border-primary/30" />
+              <div className="absolute h-44 w-44 animate-ping rounded-full border border-primary/20 animation-delay-200" />
+              <div className="absolute h-48 w-48 animate-ping rounded-full border border-primary/10 animation-delay-400" />
+            </>
+          )}
         </div>
 
-        <Button
-          type="button"
-          size="sm"
-          variant={isCalling ? "destructive" : "default"}
-          onClick={toggleCall}
-          title={isCalling ? "End Call" : "Start Call"}
-        >
-          {isCalling ? (
-            <div className="flex items-center gap-2">
-              <PhoneOff className="h-4 w-4" />
-              End Call
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              Start Call
-            </div>
+        {/* Status Indicator */}
+        <div
+          className={cn(
+            "absolute -bottom-2 right-0 h-4 w-4 rounded-full border-2 border-white",
+            callStatus === "idle" && "bg-gray-400",
+            callStatus === "connecting" && "bg-yellow-400",
+            callStatus === "in_call" && "bg-green-400",
+            callStatus === "error" && "bg-red-400"
           )}
-        </Button>
+        />
       </div>
+
+      {/* Status Text */}
+      <p className="mb-8 text-sm font-medium text-gray-600">
+        {callStatus === "idle" && "Ready to chat"}
+        {callStatus === "connecting" && "Connecting..."}
+        {callStatus === "in_call" && "Listening..."}
+        {callStatus === "error" && "Something went wrong"}
+      </p>
+
+      {/* Control Button */}
+      <Button
+        onClick={toggleCall}
+        size="lg"
+        variant={isCalling ? "destructive" : "default"}
+        className={cn(
+          "h-16 w-16 rounded-full p-0 transition-all duration-300",
+          isCalling
+            ? "bg-red-500 hover:bg-red-600"
+            : "bg-primary hover:bg-primary/90",
+          callStatus === "connecting" && "animate-pulse"
+        )}
+      >
+        {isCalling ? (
+          <Square className="h-6 w-6" />
+        ) : (
+          <Mic className="h-6 w-6" />
+        )}
+      </Button>
     </div>
   );
 }

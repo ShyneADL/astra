@@ -11,13 +11,11 @@ export async function POST(request: Request) {
       await request.json();
 
     let generatedTitle = null;
-    // If only a title is requested, generate and return it as JSON (non-streaming).
     if (wantTitle) {
       const ai = new GoogleGenAI({
         apiKey: process.env.GEMINI_API_KEY,
       });
 
-      // Use the incoming message as the base for title generation
       const baseText = (typeof message === "string" ? message : "") || "";
       const fallback = baseText.trim().slice(0, 60) || "New Chat";
 
@@ -32,7 +30,6 @@ export async function POST(request: Request) {
         "Title:",
       ].join("\n");
 
-      // Stream the title, then join to a single string to minimize API surface differences
       const titleStream = await ai.models.generateContentStream({
         model: "gemini-2.5-flash",
         contents: [

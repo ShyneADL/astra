@@ -31,7 +31,6 @@ interface AuthProviderProps {
 export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
   const queryClient = useQueryClient();
 
-  // Centralized user state via TanStack Query
   const { data: user, isLoading } = useQuery<User | null, AuthError>({
     queryKey: ["auth", "user"],
     queryFn: async () => {
