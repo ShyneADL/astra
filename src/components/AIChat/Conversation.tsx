@@ -30,7 +30,7 @@ export default function Conversation({
   initialMessages,
   setMessages,
 }: ConversationProps) {
-  const [messages, setLocalMessages] = useState<Message[]>(initialMessages);
+  // Use messages prop directly, do not maintain local state
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -39,7 +39,6 @@ export default function Conversation({
     minHeight: 24,
     maxHeight: 200,
   });
-
   const { selectedId } = useSelectedConversation();
   const queryClient = useQueryClient();
 
@@ -117,12 +116,11 @@ export default function Conversation({
       timestamp: new Date().toISOString(),
     };
 
-    const updatedMessages = [...messages, userMessage];
+    const updatedMessages = [...initialMessages, userMessage];
     setMessages(updatedMessages);
     setInput("");
     setIsTyping(true);
 
-    // Create single AI message placeholder
     const aiMessageId = (Date.now() + 1).toString();
     const aiMessage: Message = {
       id: aiMessageId,
@@ -229,7 +227,7 @@ export default function Conversation({
     <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
       <div className="flex h-[75vh] flex-col">
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          {messages.map((message) => (
+          {initialMessages.map((message) => (
             <ChatBubble
               key={message.id}
               message={message.content}

@@ -1,11 +1,15 @@
 // File: Dashboard.tsx — function Dashboard
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import VoiceChat from "./AIChat/VoiceChat";
 import Conversation from "./AIChat/Conversation";
-import { SelectedConversationProvider } from "@/contexts/SelectedConversationContext";
+import {
+  SelectedConversationProvider,
+  useSelectedConversation,
+} from "@/contexts/SelectedConversationContext";
+import { getChatMessages } from "@/lib/db";
 import {
   Select,
   SelectContent,
@@ -28,6 +32,32 @@ export default function Dashboard() {
   const [chatMode, setChatMode] = useState<"text" | "voice">("text");
   const [hasActiveChat, setHasActiveChat] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const { selectedId, setSelectedId } = useSelectedConversation();
+
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const loadMessages = async () => {
+      try {
+        const messages = await getChatMessages(selectedId);
+        if (messages) {
+          const formattedMessages = messages.map((msg: any) => ({
+            id: String(msg.id),
+            content: msg.content,
+            sender: (msg.role === "assistant" ? "ai" : "user") as "user" | "ai",
+            timestamp: msg.created_at,
+          }));
+          setMessages(formattedMessages);
+          setHasActiveChat(true);
+        }
+      } catch (error) {
+        console.error("Failed to load messages:", error);
+        setMessages([]);
+      }
+    };
+
+    loadMessages();
+  }, [selectedId]);
 
   const handleModeChange = (value: "text" | "voice") => {
     setChatMode(value);
@@ -37,12 +67,21 @@ export default function Dashboard() {
     setHasActiveChat(false);
     setMessages([]);
     setChatMode("text");
+    // Clear the selected conversation when starting a new chat
+    if (selectedId) {
+      setSelectedId(null);
+    }
   };
 
   return (
     <SelectedConversationProvider>
       <SidebarProvider>
-        <AppSidebar onConversationSelect={() => setChatMode("text")} />
+        <AppSidebar
+          onConversationSelect={() => {
+            setChatMode("text");
+            setHasActiveChat(true);
+          }}
+        />
         <main className="min-h-[100dvh] bg-gray-50 flex-1 p-2">
           <header className="bg-white shadow-sm border-b rounded-lg">
             <div className="pr-3 pl-1">
@@ -50,7 +89,7 @@ export default function Dashboard() {
                 <SidebarTrigger />
                 <div className="flex items-center gap-2">
                   <Select value={chatMode} onValueChange={handleModeChange}>
-                    <SelectTrigger className="w-full text-sm font-semibold">
+                    <SelectTrigger className="w-full text-sm font-semibold cursor-pointer">
                       <SelectValue placeholder="Select chat mode" />
                     </SelectTrigger>
                     <SelectContent>

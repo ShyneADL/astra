@@ -17,7 +17,9 @@ export async function POST(request: Request) {
       });
 
       const baseText = (typeof message === "string" ? message : "") || "";
-      const fallback = baseText.trim().slice(0, 60) || "New Chat";
+      const fallback =
+        baseText.trim().slice(0, 60) ||
+        (messages?.[0]?.content?.slice(0, 60) ?? "Untitled Chat"); // Use first message or "Untitled Chat"
 
       const titlePrompt = [
         "Summarize the following user message into a very short, human-readable chat title:",

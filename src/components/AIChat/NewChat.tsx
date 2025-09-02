@@ -86,9 +86,6 @@ export const NewChat = ({
         throw new Error("Failed to get AI response");
       }
 
-      // Switch to conversation view immediately after successful response
-      onChatStart();
-
       const serverConvId = response.headers.get("X-Conversation-Id");
       const generatedTitle = response.headers.get("X-Generated-Title");
 
@@ -117,9 +114,6 @@ export const NewChat = ({
 
           // Refresh the sidebar to show the new conversation
           queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
-
-          // Switch to conversation view
-          onChatStart();
         } catch (error) {
           console.error("Failed to create session with title:", error);
         }
@@ -142,6 +136,9 @@ export const NewChat = ({
           )
         );
       }
+
+      // Only switch to conversation view after everything is complete
+      onChatStart();
     } catch (error) {
       console.error("Error:", error);
       setMessages((prev) =>

@@ -111,9 +111,8 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
 
   return (
     <Sidebar className="bg-white">
-      <SidebarHeader />
       <SidebarContent>
-        <SidebarGroup className="relative">
+        <SidebarGroup className="relative h-full flex flex-col justify-between bg-white">
           <div className="h-[150px] lg:h-[200px] xl:h-[250px]">
             <img
               src="/logo.png"
@@ -146,34 +145,36 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
               </li>
             ))}
           </ul>
-          {user && (
-            <>
-              <div className="flex items-center gap-3">
-                {user?.user_metadata?.avatar_url && (
-                  <img
-                    src={user.user_metadata.avatar_url}
-                    alt="Profile"
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                )}
-                <span className="font-medium">{displayName ?? "Guest"}</span>
-              </div>
-              <span>
-                Not You?{" "}
-                <button
-                  onClick={handleLogout}
-                  className="text-sm text-red-500 hover:text-red-400 underline cursor-pointer"
-                >
-                  Log out
-                </button>
-              </span>
-            </>
-          )}
-          {!user && (
-            <Link to="/auth" className="text-sm text-gray-600">
-              Login
-            </Link>
-          )}
+          <div>
+            {user && (
+              <>
+                <div className="flex items-center gap-3">
+                  {user?.user_metadata?.avatar_url && (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="Profile"
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  )}
+                  <span className="font-medium">{displayName ?? "Guest"}</span>
+                </div>
+                <span>
+                  Not You?{" "}
+                  <button
+                    onClick={handleLogout}
+                    className="text-sm text-red-500 hover:text-red-400 underline cursor-pointer"
+                  >
+                    Log out
+                  </button>
+                </span>
+              </>
+            )}
+            {!user && (
+              <Link to="/auth" className="text-sm text-gray-600">
+                Login
+              </Link>
+            )}
+          </div>
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter />
