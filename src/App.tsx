@@ -5,15 +5,19 @@ import {
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SelectedConversationProvider } from "@/contexts/SelectedConversationContext";
-import AuthPage from "./components/Auth/AuthPage";
+import AuthPage from "./components/Auth/SignUpPage";
+import LoginPage from "./components/Auth/LoginPage";
 import Dashboard from "./components/Dashboard";
-import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 
 const router = createBrowserRouter([
   {
-    path: "/auth",
+    path: "/signup",
     element: <AuthPage />,
+  },
+  {
+    path: "/login",
+    element: <LoginPage />,
   },
   {
     path: "/dashboard",

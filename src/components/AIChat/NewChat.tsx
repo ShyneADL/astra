@@ -77,13 +77,22 @@ export const NewChat = ({
           })),
           conversationId,
           message: input.trim(),
-          wantTitle: true, // Always request title for new chats
+          wantTitle: true,
         }),
       });
 
       if (!response.ok || !response.body) {
         throw new Error("Failed to get AI response");
       }
+
+      console.log(
+        "Response headers:",
+        Object.fromEntries(response.headers.entries())
+      );
+      console.log(
+        "Generated title:",
+        response.headers.get("X-Generated-Title")
+      );
 
       const serverConvId = response.headers.get("X-Conversation-Id");
       const generatedTitle = response.headers.get("X-Generated-Title");

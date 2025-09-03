@@ -26,6 +26,8 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 app.post("/api/chat", async (req, res) => {
   try {
     const { messages, conversationId, wantTitle, message } = req.body;
+    console.log("Request received:", { wantTitle, message }); // Add this
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -45,6 +47,7 @@ app.post("/api/chat", async (req, res) => {
 
     let generatedTitle = null;
     if (wantTitle && message) {
+      console.log("Attempting to generate title for message:", message); // Add this
       try {
         const titleModel = genAI.getGenerativeModel({
           model: "gemini-2.5-flash",
@@ -58,29 +61,29 @@ app.post("/api/chat", async (req, res) => {
           `Message: """${message}"""`,
           "",
           "Title:",
-        ].join("\\n");
+        ].join("\n"); // Fix this from \\n to \n
 
+        console.log("Sending title prompt to Gemini:", titlePrompt); // Add this
         const titleResult = await titleModel.generateContent(titlePrompt);
         const titleText = titleResult.response.text();
         generatedTitle = titleText
           .trim()
           .replace(/^["'#*\-–\s]+|["'#*\-–\s]+$/g, "")
           .slice(0, 80);
+
+        console.log("Generated title after cleaning:", generatedTitle); // Add this
       } catch (titleError) {
         console.error("Title generation error:", titleError);
-        // Continue with default title if title generation fails
       }
     }
 
     let sessionId = conversationId;
 
-    // Create new chat session if none provided
     if (!sessionId) {
       const { data: session, error: sessionError } = await supabase
         .from("chat_sessions")
         .insert({
           user_id: user.id,
-          title: "New Convo",
         })
         .select()
         .single();
@@ -91,12 +94,21 @@ app.post("/api/chat", async (req, res) => {
       }
 
       sessionId = session.id;
+
+      if (generatedTitle) {
+        const { error: updateError } = await supabase
+          .from("chat_sessions")
+          .update({ title: generatedTitle })
+          .eq("id", sessionId);
+
+        if (updateError) {
+          console.error("Title update error:", updateError);
+        }
+      }
     }
 
-    // Get the user's message (last message in the array)
     const userMessage = messages[messages.length - 1];
 
-    // Save user message to database
     const { error: userMsgError } = await supabase
       .from("chat_messages")
       .insert({
@@ -149,6 +161,7 @@ app.post("/api/chat", async (req, res) => {
     res.setHeader("X-Conversation-Id", sessionId);
     if (generatedTitle) {
       res.setHeader("X-Generated-Title", generatedTitle);
+      console.log("Set title header:", generatedTitle); // Add this log
     }
 
     // Send message and stream response

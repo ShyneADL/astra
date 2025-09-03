@@ -11,11 +11,14 @@ import {
   Users,
   Cloud,
   ShieldCheck,
+  Clock,
+  Heart,
+  Brain,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 
-export default function AuthPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +31,7 @@ export default function AuthPage() {
     setError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -61,40 +64,40 @@ export default function AuthPage() {
         <div className="bg-white/50  overflow-hidden rounded-[40px] shadow-2xl">
           <div className="grid min-h-[700px] lg:grid-cols-2">
             {/* Left Side */}
-            <div className="brand-side relative m-4 rounded-3xl bg-[url('https://cdn.midjourney.com/299f94f9-ecb9-4b26-bead-010b8d8b01d9/0_0.webp?w=800&q=80')] bg-cover p-12 text-white">
+            <div className="brand-side relative m-4 rounded-3xl bg-[url('/login-bg.jpg')] bg-cover p-12 text-white">
               <div>
-                <div className="text-grey mb-12 text-lg font-semibold uppercase">
-                  astra
+                <div className="text-white mb-12 text-lg font-semibold uppercase">
+                  Astra
                 </div>
-                <h1 className="text-grey mb-4 text-6xl font-medium">
-                  Create, Design, and Innovate
+                <h1 className="text-white mb-4  md:text-6xl text-4xl font-medium">
+                  Welcome back!
                 </h1>
-                <p className="text-grey mb-12 text-xl opacity-80">
-                  Join thousands of creators who trust PixelForge Studio to
-                  bring their vision to life
+                <p className="text-white mb-12 text-xl opacity-80">
+                  Continue your confidential, supportive conversations with
+                  Astra — anytime, anywhere.
                 </p>
 
                 <div className="space-y-6">
                   {[
                     {
-                      icon: <Palette size={16} />,
-                      title: "Advanced Design Tools",
-                      desc: "Professional-grade tools for every project",
-                    },
-                    {
-                      icon: <Users size={16} />,
-                      title: "Team Collaboration",
-                      desc: "Work together seamlessly in real-time",
-                    },
-                    {
-                      icon: <Cloud size={16} />,
-                      title: "Cloud Storage",
-                      desc: "Access your projects from anywhere",
-                    },
-                    {
                       icon: <ShieldCheck size={16} />,
-                      title: "Enterprise Security",
-                      desc: "Bank-level security for your data",
+                      title: "Safe & Confidential",
+                      desc: "Private, secure conversations you can trust",
+                    },
+                    {
+                      icon: <Clock size={16} />,
+                      title: "24/7 Availability",
+                      desc: "Support whenever you need it, day or night",
+                    },
+                    {
+                      icon: <Heart size={16} />,
+                      title: "Personalized Support",
+                      desc: "AI-powered guidance tailored to your needs",
+                    },
+                    {
+                      icon: <Brain size={16} />,
+                      title: "Evidence-Based Approach",
+                      desc: "Techniques grounded in therapeutic practices",
                     },
                   ].map(({ icon, title, desc }, i) => (
                     <div
@@ -106,8 +109,8 @@ export default function AuthPage() {
                         {icon}
                       </div>
                       <div>
-                        <div className="font-semibold text-grey">{title}</div>
-                        <div className="text-sm opacity-70 text-grey">
+                        <div className="font-semibold text-white">{title}</div>
+                        <div className="text-sm opacity-70 text-white">
                           {desc}
                         </div>
                       </div>
@@ -125,7 +128,7 @@ export default function AuthPage() {
                     Welcome back
                   </h2>
                   <p className="mt-2 text-sm text-stone-600">
-                    Sign in to continue your creative journey
+                    Login, let's pick up from where we left from :)
                   </p>
                 </div>
 
@@ -205,13 +208,15 @@ export default function AuthPage() {
 
                   <button
                     type="submit"
-                    className="login-btn relative flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition-all duration-300"
+                    className="cursor-pointer login-btn relative flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition-all duration-300"
                     disabled={loading}
                   >
                     {loading ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        <span className="ml-2">Signing in...</span>
+                        <span className="ml-2">
+                          Bringing you back in 3..2...1...
+                        </span>
                       </>
                     ) : (
                       "Sign in to your account"
@@ -242,10 +247,13 @@ export default function AuthPage() {
                 </form>
 
                 <div className="text-muted-foreground mt-8 text-center text-sm">
-                  Don&apos;t have an account?{" "}
-                  <a href="#" className="text-grey hover:text-grey/80">
-                    Sign up for free
-                  </a>
+                  Don't have an account?{" "}
+                  <Link
+                    to="/signup"
+                    className="text-primary hover:text-grey/80"
+                  >
+                    Sign up for free!
+                  </Link>
                 </div>
               </div>
             </div>
