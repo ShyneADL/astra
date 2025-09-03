@@ -2,17 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Send } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
-import {
-  createChatSession,
-  getChatMessages,
-  getChatSessionById,
-} from "@/lib/db";
+import { getChatMessages, getChatSessionById } from "@/lib/db";
 import ChatBubble from "./ChatBubble";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
+import { cn } from "@/lib/utils";
 
 interface Message {
   id: string;
@@ -30,17 +26,14 @@ export default function Conversation({
   initialMessages,
   setMessages,
 }: ConversationProps) {
-  // Use messages prop directly, do not maintain local state
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 24,
+    minHeight: 36,
     maxHeight: 200,
   });
   const { selectedId } = useSelectedConversation();
-  const queryClient = useQueryClient();
 
   interface Message {
     id: string;
@@ -61,14 +54,12 @@ export default function Conversation({
           console.warn("No session found for id:", selectedId);
           if (!cancelled) {
             setMessages([]);
-            setSessionId(null);
             setConversationId(null);
           }
           return;
         }
 
         if (!cancelled) {
-          setSessionId(session.id);
           setConversationId(session.id);
         }
 
@@ -131,12 +122,8 @@ export default function Conversation({
     setMessages((prev) => [...prev, aiMessage]);
 
     try {
-      // Single-cycle setup: compute the draft title and whether we need a server-generated title
-      const draftTitle = (input || userMessage.content).trim();
-      const needTitle = !sessionId;
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-
       const response = await fetch("http://localhost:3001/api/chat", {
         method: "POST",
         headers: {
@@ -144,10 +131,11 @@ export default function Conversation({
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
-          messages: updatedMessages,
-          conversationId,
-          message: draftTitle,
-          wantTitle: needTitle,
+          messages: updatedMessages.map(({ sender, content }) => ({
+            role: sender === "user" ? "user" : "assistant",
+            content,
+          })),
+          conversationId: selectedId || conversationId,
         }),
       });
 
@@ -156,23 +144,8 @@ export default function Conversation({
       }
 
       const serverConvId = response.headers.get("X-Conversation-Id");
-      const generatedTitle = response.headers.get("X-Generated-Title");
-
       if (serverConvId && !conversationId) {
         setConversationId(serverConvId);
-      }
-
-      if (needTitle && generatedTitle && !sessionId) {
-        try {
-          const newSession = await createChatSession(generatedTitle);
-          setSessionId(newSession.id);
-          setConversationId(newSession.id);
-
-          // Refresh the sidebar to show the new conversation
-          queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
-        } catch (error) {
-          console.error("Failed to create session with title:", error);
-        }
       }
 
       const reader = response.body.getReader();
@@ -185,7 +158,6 @@ export default function Conversation({
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
-
         setMessages((prev) =>
           prev.map((m) =>
             m.id === aiMessageId ? { ...m, content: aiResponse } : m
@@ -225,7 +197,7 @@ export default function Conversation({
 
   return (
     <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
-      <div className="flex h-[75vh] flex-col">
+      <div className="flex h-full flex-col justify-between">
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {initialMessages.map((message) => (
             <ChatBubble
@@ -258,14 +230,25 @@ export default function Conversation({
         </div>
 
         <div className="border-border border-t p-4">
-          <form onSubmit={handleSendMessage} className="flex space-x-2">
+          <form
+            onSubmit={handleSendMessage}
+            className="flex space-x-2 items-end"
+          >
             <textarea
               ref={textareaRef}
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Type your message..."
-              className="flex-1"
+              className={cn(
+                "flex-1 resize-none bg-transparent px-3 py-2",
+                "border-0 outline-none focus:ring-0",
+                "text-base placeholder:text-muted-foreground",
+                "min-h-[36px] max-h-[200px] overflow-hidden resize-none leading-[100%] placeholder:leading-[100%]"
+              )}
+              style={{
+                overflow: input ? "auto" : "hidden",
+              }}
             />
             <Button
               type="submit"

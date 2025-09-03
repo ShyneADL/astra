@@ -29,7 +29,7 @@ export const NewChat = ({
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 24,
+    minHeight: 36,
     maxHeight: 200,
   });
   const queryClient = useQueryClient();
@@ -60,11 +60,10 @@ export const NewChat = ({
     setIsTyping(true);
 
     try {
-      const draftTitle = input.trim();
-      const needTitle = !sessionId;
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
+      // Always request a title for new chats
       const response = await fetch("http://localhost:3001/api/chat", {
         method: "POST",
         headers: {
@@ -72,13 +71,13 @@ export const NewChat = ({
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
-          messages: updatedMessages.map(({ sender, content }) => ({
-            role: sender === "user" ? "user" : "assistant",
-            content,
+          messages: messages.map((msg) => ({
+            role: msg.sender === "user" ? "user" : "model",
+            content: msg.content,
           })),
           conversationId,
-          message: draftTitle,
-          wantTitle: needTitle,
+          message: input.trim(),
+          wantTitle: true, // Always request title for new chats
         }),
       });
 
@@ -93,14 +92,14 @@ export const NewChat = ({
         setConversationId(serverConvId);
       }
 
-      if (needTitle && generatedTitle && !sessionId) {
+      if (generatedTitle && !sessionId) {
         try {
-          // Create a new chat session in Supabase
+          // Create a new chat session in Supabase with the generated title
           const { data: newSession, error } = await supabase
             .from("chat_sessions")
             .insert([
               {
-                title: generatedTitle,
+                title: generatedTitle || "New Convo", // Ensure we always have a title
                 created_at: new Date().toISOString(),
               },
             ])
@@ -109,11 +108,15 @@ export const NewChat = ({
 
           if (error) throw error;
 
+          // Set both local and conversation IDs
           setSessionId(newSession.id);
           setConversationId(newSession.id);
 
-          // Refresh the sidebar to show the new conversation
-          queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+          // Force refresh the sidebar immediately
+          await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+
+          // Wait for a small delay before transitioning
+          await new Promise((resolve) => setTimeout(resolve, 100));
         } catch (error) {
           console.error("Failed to create session with title:", error);
         }
@@ -137,8 +140,10 @@ export const NewChat = ({
         );
       }
 
-      // Only switch to conversation view after everything is complete
-      onChatStart();
+      // Add a small delay for smooth transition
+      setTimeout(() => {
+        onChatStart();
+      }, 300);
     } catch (error) {
       console.error("Error:", error);
       setMessages((prev) =>
@@ -190,8 +195,8 @@ export const NewChat = ({
         <form
           onSubmit={handleSendMessage}
           className={cn(
-            "flex space-x-2 p-2 border border-accent-foreground rounded-xl",
-            "focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]",
+            "flex space-x-2 items-end p-2 border border-primary/30 rounded-xl",
+            "focus-within:border-primary/90 focus-within:ring-[1px]",
             "bg-background/80 backdrop-blur-sm"
           )}
         >
@@ -205,7 +210,7 @@ export const NewChat = ({
               "flex-1 resize-none bg-transparent px-3 py-2",
               "border-0 outline-none focus:ring-0",
               "text-base placeholder:text-muted-foreground",
-              "min-h-[24px] max-h-[200px]"
+              "min-h-[36px] max-h-[200px] overflow-hidden resize-none leading-[100%] placeholder:leading-[100%]"
             )}
             style={{
               overflow: input ? "auto" : "hidden",
@@ -216,12 +221,22 @@ export const NewChat = ({
             size="icon"
             className={cn(
               "bg-primary hover:bg-primary/90 w-fit px-4",
-              "self-end"
+              "self-end transition-opacity",
+              isTyping && "opacity-70"
             )}
             disabled={isTyping || !input.trim()}
           >
-            <Send className="h-4 w-4 mr-2" />
-            Send
+            {isTyping ? (
+              <>
+                <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Send
+              </>
+            )}
           </Button>
         </form>
       </div>

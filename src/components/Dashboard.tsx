@@ -67,7 +67,6 @@ export default function Dashboard() {
     setHasActiveChat(false);
     setMessages([]);
     setChatMode("text");
-    // Clear the selected conversation when starting a new chat
     if (selectedId) {
       setSelectedId(null);
     }
@@ -86,7 +85,7 @@ export default function Dashboard() {
           <header className="bg-white shadow-sm border-b rounded-lg">
             <div className="pr-3 pl-1">
               <div className="flex justify-between items-center py-2">
-                <SidebarTrigger />
+                <SidebarTrigger className="hover:bg-primary hover:text-white cursor-pointer" />
                 <div className="flex items-center gap-2">
                   <Select value={chatMode} onValueChange={handleModeChange}>
                     <SelectTrigger className="w-full text-sm font-semibold cursor-pointer">

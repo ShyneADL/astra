@@ -76,7 +76,6 @@ export async function POST(request: Request) {
       parts: [{ text: msg.content }],
     }));
 
-    // Add the new message
     contents.push({
       role: "user",
       parts: [{ text: message }],
@@ -88,7 +87,6 @@ export async function POST(request: Request) {
       contents,
     });
 
-    // Create a readable stream for the response
     const stream = new ReadableStream({
       async start(controller) {
         try {

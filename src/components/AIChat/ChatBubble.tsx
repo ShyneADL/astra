@@ -42,7 +42,7 @@ function ChatBubble({ message, isUser, timestamp }: ChatBubbleProps) {
             className={cn(
               "rounded-2xl px-4 py-2 shadow-sm",
               isUser
-                ? "bg-primary text-black rounded-tr-none"
+                ? "bg-primary text-white rounded-tr-none"
                 : "border-border bg-card text-card-foreground rounded-tl-none border"
             )}
           >

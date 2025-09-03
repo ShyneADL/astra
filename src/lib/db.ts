@@ -28,7 +28,6 @@ export const getChatMessages = async (sessionId: string) => {
   return data;
 };
 
-// Create a new chat session
 export const createChatSession = async (title: string) => {
   const { data, error } = await supabase
     .from("chat_sessions")

@@ -25,7 +25,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const { messages, conversationId } = req.body;
+    const { messages, conversationId, wantTitle, message } = req.body;
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -43,6 +43,35 @@ app.post("/api/chat", async (req, res) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
+    let generatedTitle = null;
+    if (wantTitle && message) {
+      try {
+        const titleModel = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash",
+        });
+        const titlePrompt = [
+          "Summarize the following user message into a very short, human-readable chat title:",
+          "- Max 8 words",
+          "- No surrounding quotes",
+          "- No trailing punctuation",
+          "",
+          `Message: """${message}"""`,
+          "",
+          "Title:",
+        ].join("\\n");
+
+        const titleResult = await titleModel.generateContent(titlePrompt);
+        const titleText = titleResult.response.text();
+        generatedTitle = titleText
+          .trim()
+          .replace(/^["'#*\-–\s]+|["'#*\-–\s]+$/g, "")
+          .slice(0, 80);
+      } catch (titleError) {
+        console.error("Title generation error:", titleError);
+        // Continue with default title if title generation fails
+      }
+    }
+
     let sessionId = conversationId;
 
     // Create new chat session if none provided
@@ -51,7 +80,7 @@ app.post("/api/chat", async (req, res) => {
         .from("chat_sessions")
         .insert({
           user_id: user.id,
-          title: "New Chat",
+          title: "New Convo",
         })
         .select()
         .single();
@@ -118,6 +147,9 @@ app.post("/api/chat", async (req, res) => {
     res.setHeader("Content-Type", "text/plain");
     res.setHeader("Transfer-Encoding", "chunked");
     res.setHeader("X-Conversation-Id", sessionId);
+    if (generatedTitle) {
+      res.setHeader("X-Generated-Title", generatedTitle);
+    }
 
     // Send message and stream response
     const result = await chat.sendMessageStream(userMessage.content);

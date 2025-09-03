@@ -1,16 +1,17 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarHeader,
 } from "@/components/ui/sidebar";
+import { ConversationList } from "./ConversationList";
 import { supabase } from "@/lib/supabase";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { Skeleton } from "./ui/skeleton";
 
 type ConversationItem = {
   id: string;
@@ -30,7 +31,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   const navigate = useNavigate();
 
   const {
-    data: conversations,
+    data: conversations = [],
     isLoading,
     isError,
   } = useQuery({
@@ -42,8 +43,9 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data || [];
     },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
 
   useEffect(() => {
@@ -120,9 +122,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
               className="size-10 object-contain"
             />
           </div>
-          {user && isLoading && (
-            <p className="text-sm text-gray-500">Loading...</p>
-          )}
+          {user && isLoading && <Skeleton className="h-full flex-1 w-full" />}
           {!user && (
             <p className="text-sm text-gray-500">
               <Link to="/auth" className="hover:underline hover:text-blue-400">
@@ -134,46 +134,52 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
           {isError && (
             <p className="text-sm text-red-500">Failed to load conversations</p>
           )}
-          <ul className="space-y-2">
-            {conversations?.map((conversation) => (
-              <li
-                key={conversation.id}
-                onClick={() => handleConversationClick(conversation.id)}
-                className="text-sm text-gray-800 py-2 px-3 rounded-md hover:bg-gray-100 cursor-pointer"
-              >
-                {conversation.title}
-              </li>
-            ))}
-          </ul>
+          <Suspense
+            fallback={
+              <Skeleton className="min-h-[50vh] h-full flex-1 w-full" />
+            }
+          >
+            <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
+              <ConversationList
+                conversations={conversations}
+                onSelect={handleConversationClick}
+              />
+            </ul>
+          </Suspense>
+
           <div>
-            {user && (
-              <>
-                <div className="flex items-center gap-3">
-                  {user?.user_metadata?.avatar_url && (
-                    <img
-                      src={user.user_metadata.avatar_url}
-                      alt="Profile"
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  )}
-                  <span className="font-medium">{displayName ?? "Guest"}</span>
-                </div>
-                <span>
-                  Not You?{" "}
-                  <button
-                    onClick={handleLogout}
-                    className="text-sm text-red-500 hover:text-red-400 underline cursor-pointer"
-                  >
-                    Log out
-                  </button>
-                </span>
-              </>
-            )}
-            {!user && (
-              <Link to="/auth" className="text-sm text-gray-600">
-                Login
-              </Link>
-            )}
+            <Suspense fallback={<Skeleton className="w-full" />}>
+              {user && (
+                <>
+                  <div className="flex items-center gap-3">
+                    {user?.user_metadata?.avatar_url && (
+                      <img
+                        src={user.user_metadata.avatar_url}
+                        alt="Profile"
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    )}
+                    <span className="font-medium">
+                      {displayName ?? "Guest"}
+                    </span>
+                  </div>
+                  <span>
+                    Not You?{" "}
+                    <button
+                      onClick={handleLogout}
+                      className="text-sm text-red-500 hover:text-red-400 underline cursor-pointer"
+                    >
+                      Log out
+                    </button>
+                  </span>
+                </>
+              )}
+              {!user && (
+                <Link to="/auth" className="text-sm text-gray-600">
+                  Login
+                </Link>
+              )}
+            </Suspense>
           </div>
         </SidebarGroup>
       </SidebarContent>
