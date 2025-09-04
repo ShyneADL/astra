@@ -20,7 +20,6 @@ import {
 
 export default function LoginPage() {
   const { signIn, signInWithGoogle } = useAuth();
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -49,15 +48,13 @@ export default function LoginPage() {
 
   const handleGoogleSignIn = async () => {
     setError(null);
-    setLoading(true);
     try {
       const { error } = await signInWithGoogle();
       if (error) {
         setError(error.message);
-        setLoading(false);
       }
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError("An unexpected error occurred");
     }
   };
   return (
@@ -67,10 +64,11 @@ export default function LoginPage() {
           <div className="grid min-h-[700px] lg:grid-cols-2">
             {/* Left Side */}
             <div className="brand-side relative m-4 rounded-3xl bg-[url('/login-bg.jpg')] bg-cover p-12 text-white">
-              <div>
-                <div className="text-white mb-12 text-lg font-semibold uppercase">
+              <div className="absolute inset-0 flex-1 bg-black/50 rounded-3xl z-[1]"></div>
+              <div className="relative z-[2]">
+                <p className="text-white mb-12 text-lg font-semibold uppercase z-[2]">
                   Astra
-                </div>
+                </p>
                 <h1 className="text-white mb-4  md:text-6xl text-4xl font-medium">
                   Welcome back!
                 </h1>

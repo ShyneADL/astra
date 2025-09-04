@@ -1,69 +1,190 @@
-# React + TypeScript + Vite
+# Astra - AI-Powered Chat Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Astra is a modern, real-time chat application that leverages Google's Gemini AI for intelligent conversations. Built with React, TypeScript, and Vite, it offers a seamless chat experience with features like conversation management, real-time typing indicators, and AI-powered responses.
 
-Currently, two official plugins are available:
+![Astra Demo](public/logo.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🌟 Features
 
-## Expanding the ESLint configuration
+- **Real-time AI Chat**: Integration with Google's Gemini AI model
+- **Authentication**: Secure user authentication with Supabase
+- **Streaming Responses**: Real-time streaming of AI responses
+- **Conversation Management**: Save and manage multiple chat sessions
+- **Responsive Design**: Mobile-friendly interface with Tailwind CSS
+- **Auto-resizing Input**: Dynamic textarea that adjusts to content
+- **TypeScript**: Full type safety across the application
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🚀 Technologies Used
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Frontend
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **TailwindCSS** for styling
+- **shadcn/ui** for UI components
+- **React Hook Form** with Zod for form validation
+- **TanStack Query** for server state management
+- **Lucide React** for icons
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
+### Backend
+
+- **Supabase**
+  - Authentication
+  - Database
+  - Real-time subscriptions
+- **Google Gemini AI** for chat responses
+- **Streaming API** implementation
+
+## 🔍 Key Technical Implementations
+
+### AI Chat Implementation
+
+```typescript
+// Streaming Response Handler
+const stream = new ReadableStream({
+  async start(controller) {
+    for await (const chunk of response) {
+      controller.enqueue(new TextEncoder().encode(chunk.text));
+    }
+    controller.close();
   },
-])
+});
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Form Validation
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```typescript
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
 ```
+
+### Real-time Chat
+
+```typescript
+// Auto-resizing Textarea Hook
+const useAutoResizeTextarea = ({ minHeight, maxHeight }: AutoResizeOptions) => {
+  // Implementation details
+};
+```
+
+## 🛠️ Architecture
+
+### Frontend Architecture
+
+- **Context API** for global state management
+- **Custom Hooks** for reusable logic
+- **Component composition** for UI modularity
+- **TypeScript** for type safety
+- **Error Boundaries** for graceful error handling
+
+### Security Considerations
+
+- Input sanitization
+- Form validation
+- Auth token management
+- Rate limiting
+- Error handling
+
+## 📦 Installation
+
+1. Clone the repository:
+
+```bash
+git clone https://github.com/ShyneADL/astra.git
+cd astra
+```
+
+2. Install dependencies:
+
+```bash
+npm install
+```
+
+3. Set up environment variables:
+
+```bash
+cp .env.example .env
+```
+
+4. Run the development server:
+
+```bash
+npm run dev
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch:
+
+```bash
+git checkout -b feature/AmazingFeature
+```
+
+3. Commit your changes:
+
+```bash
+git commit -m 'Add some AmazingFeature'
+```
+
+4. Push to the branch:
+
+```bash
+git push origin feature/AmazingFeature
+```
+
+5. Open a Pull Request
+
+### Commit Guidelines
+
+- Use conventional commits
+- Keep commits atomic and focused
+- Include relevant tests
+- Update documentation
+
+## 🔐 Security Measures
+
+1. **Input Validation**
+
+   - Zod schemas for form validation
+   - Sanitization of user inputs
+   - Type checking with TypeScript
+
+2. **Authentication**
+
+   - JWT token management
+   - Secure session handling
+
+3. **API Security**
+   - Rate limiting
+   - CORS configuration
+   - Error handling
+
+## 📈 Performance Optimizations
+
+1. **Frontend**
+
+   - Code splitting
+   - Memoization
+   - Virtual scrolling for chat history
+
+2. **Backend**
+   - Connection pooling
+   - Query optimization
+   - Caching strategies
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Google Gemini AI team
+- Supabase team
+- shadcn/ui
+
+---
+
+Built with ❤️ by [ShyneADL](https://github.com/ShyneADL)

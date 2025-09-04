@@ -22,12 +22,12 @@ export default function SignUpPage() {
   const { signUp, signInWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const {
     register,
     handleSubmit,
+    setError: setFormError,
     formState: { errors, isSubmitting },
   } = useForm<SignUpInput>({
     resolver: zodResolver(signUpSchema),
@@ -35,30 +35,41 @@ export default function SignUpPage() {
 
   const onSubmit = async (data: SignUpInput) => {
     try {
-      setError(null);
       setLoading(true);
       const { error } = await signUp(data.email, data.password);
       if (error) {
-        setError(error.message);
+        setFormError("root", {
+          type: "manual",
+          message: error.message,
+        });
       } else {
         navigate("/dashboard", { replace: true });
       }
     } catch (err) {
-      setError("An unexpected error occurred");
+      setFormError("root", {
+        type: "manual",
+        message: "An unexpected error occurred",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError(null);
     setLoading(true);
     try {
       const { error } = await signInWithGoogle();
       if (error) {
-        setError(error.message);
-        setLoading(false);
+        setFormError("root", {
+          type: "manual",
+          message: error.message,
+        });
       }
+    } catch (err) {
+      setFormError("root", {
+        type: "manual",
+        message: "An unexpected error occurred",
+      });
     } finally {
       setLoading(false);
     }
@@ -71,17 +82,18 @@ export default function SignUpPage() {
           <div className="grid min-h-[700px] lg:grid-cols-2">
             {/* Left Side */}
             <div className="brand-side relative m-4 rounded-3xl bg-[url('/login-bg.jpg')] bg-cover p-12 text-white">
-              <div>
-                <div className="text-white mb-12 text-lg font-semibold uppercase">
+              <div className="absolute inset-0 flex-1 bg-black/50 rounded-3xl z-[1]"></div>
+              <div className="relative z-[2]">
+                <p className="text-white mb-12 text-lg font-semibold uppercase z-[2]">
                   Astra
-                </div>
+                </p>
                 <h1 className="text-white mb-4 md:text-5xl text-3xl font-medium">
                   Your Companion for Mental Wellness
                 </h1>
-                <p className="text-white mb-12 text-xl opacity-80">
+                <h2 className="text-white mb-12 text-xl opacity-80">
                   Join thousands of people who trust Astra for confidential,
                   supportive conversations anytime, anywhere
-                </p>
+                </h2>
 
                 <div className="space-y-6">
                   {[
@@ -261,6 +273,14 @@ export default function SignUpPage() {
                     </button>
                   </div>
                 </form>
+
+                {errors.root && (
+                  <div className="rounded-md bg-red-50 p-4">
+                    <p className="text-sm text-red-500">
+                      {errors.root.message}
+                    </p>
+                  </div>
+                )}
 
                 <div className="text-muted-foreground mt-8 text-center text-sm">
                   Already have an account?{" "}

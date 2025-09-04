@@ -1,7 +1,12 @@
 import { memo } from "react";
 
+interface ConversationItem {
+  id: string;
+  title: string;
+}
+
 interface ConversationListProps {
-  conversations: Array<{ id: string; title: string }>;
+  conversations: ConversationItem[];
   onSelect: (id: string) => void;
 }
 
@@ -15,9 +20,9 @@ export const ConversationList = memo(function ConversationList({
         <li
           key={conversation.id}
           onClick={() => onSelect(conversation.id)}
-          className="text-sm text-gray-800 py-2 px-3 rounded-md hover:bg-gray-100 cursor-pointer"
+          className="p-3 hover:bg-gray-100 cursor-pointer rounded-lg transition-colors"
         >
-          {conversation.title}
+          <span className="text-sm font-medium">{conversation.title}</span>
         </li>
       ))}
     </ul>
