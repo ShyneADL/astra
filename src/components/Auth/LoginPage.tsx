@@ -63,7 +63,7 @@ export default function LoginPage() {
         <div className="bg-white/50  overflow-hidden rounded-[40px] shadow-2xl">
           <div className="grid min-h-[700px] lg:grid-cols-2">
             {/* Left Side */}
-            <div className="brand-side relative m-4 rounded-3xl bg-[url('/login-bg.webp')] bg-cover p-12 text-white">
+            <div className="brand-side md:block hidden relative m-4 rounded-3xl bg-[url('/login-bg.webp')] bg-cover p-12 text-white">
               <div className="absolute inset-0 flex-1 bg-black/50 rounded-3xl z-[1]"></div>
               <div className="relative z-[2]">
                 <p className="text-white mb-12 text-lg font-semibold uppercase z-[2]">
@@ -121,14 +121,14 @@ export default function LoginPage() {
             </div>
 
             {/* Right Side */}
-            <div className="flex flex-col justify-center p-12">
+            <div className="flex flex-col justify-center md:p-12 p-6">
               <div className="mx-auto w-full max-w-md">
                 <div className="mb-8 text-center">
                   <h2 className="text-3xl font-light uppercase">
                     Welcome back
                   </h2>
                   <p className="mt-2 text-sm text-stone-600">
-                    Login, let's pick up from where we left from :)
+                    Hey there, let's pick up from where we left from :)
                   </p>
                 </div>
 

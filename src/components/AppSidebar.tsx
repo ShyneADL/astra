@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, useRef } from "react"; // Add useRef
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Sidebar,
@@ -12,14 +12,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@mui/material";
-import { useVirtualizer } from "@tanstack/react-virtual"; // Add this import
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 type ConversationItem = {
   id: string;
   title: string;
 };
 
-// Add onConversationSelect to component props
 interface AppSidebarProps {
   onConversationSelect: () => void;
 }
