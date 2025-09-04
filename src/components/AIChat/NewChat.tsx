@@ -59,12 +59,14 @@ export const NewChat = ({
     setInput("");
     setIsTyping(true);
 
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
       // Always request a title for new chats
-      const response = await fetch("http://localhost:3001/api/chat", {
+      const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
