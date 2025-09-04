@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { Link, useNavigate } from "react-router-dom";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { Skeleton } from "./ui/skeleton";
+import { Skeleton } from "@mui/material";
 
 type ConversationItem = {
   id: string;
@@ -100,7 +100,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   const handleLogout = async () => {
     try {
       await signOut();
-      navigate("/auth");
+      navigate("/login");
     } catch (error) {
       console.error("Error logging out:", error);
     }
@@ -125,7 +125,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
           {user && isLoading && <Skeleton className="h-full flex-1 w-full" />}
           {!user && (
             <p className="text-sm text-gray-500">
-              <Link to="/auth" className="hover:underline hover:text-blue-400">
+              <Link to="/login" className="hover:underline hover:text-blue-400">
                 Login
               </Link>{" "}
               to see your conversation history
@@ -136,7 +136,10 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
           )}
           <Suspense
             fallback={
-              <Skeleton className="min-h-[50vh] h-full flex-1 w-full" />
+              <Skeleton
+                className="min-h-[50vh] h-full flex-1 w-full"
+                animation="pulse"
+              />
             }
           >
             <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
@@ -148,7 +151,9 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
           </Suspense>
 
           <div>
-            <Suspense fallback={<Skeleton className="w-full" />}>
+            <Suspense
+              fallback={<Skeleton className="w-full" animation="pulse" />}
+            >
               {user && (
                 <>
                   <div className="flex items-center gap-3">
@@ -175,7 +180,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
                 </>
               )}
               {!user && (
-                <Link to="/auth" className="text-sm text-gray-600">
+                <Link to="/login" className="text-sm text-gray-600">
                   Login
                 </Link>
               )}

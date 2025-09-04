@@ -13,9 +13,10 @@ import {
   Brain,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function SignUpPage() {
+  const { signUp, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -28,10 +29,7 @@ export default function SignUpPage() {
     setError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
+      const { error } = await signUp(email, password);
       if (error) {
         setError(error.message);
       } else {
@@ -45,12 +43,13 @@ export default function SignUpPage() {
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/dashboard" },
-    });
-    if (error) {
-      setError(error.message);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    } finally {
       setLoading(false);
     }
   };

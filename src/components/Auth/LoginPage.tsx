@@ -7,18 +7,16 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Palette,
-  Users,
-  Cloud,
   ShieldCheck,
   Clock,
   Heart,
   Brain,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
+  const { signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -31,10 +29,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await signIn(email, password);
       if (error) {
         setError(error.message);
       } else {
@@ -48,16 +43,16 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setError(null);
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: window.location.origin + "/dashboard" },
-    });
-    if (error) {
-      setError(error.message);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+      }
+    } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden p-4">
       <div className="z-10 w-full max-w-6xl">

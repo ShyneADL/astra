@@ -14,14 +14,34 @@ interface AuthContextType {
     email: string,
     password: string
   ) => Promise<{ data: AuthResponse["data"]; error: AuthError | null }>;
+  signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<{ error: AuthError | null }>;
   loading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+const initialAuthContext: AuthContextType = {
+  user: null,
+  signUp: async () => ({
+    data: { user: null, session: null },
+    error: null,
+  }),
+  signIn: async () => ({
+    data: { user: null, session: null },
+    error: null,
+  }),
+  signInWithGoogle: async () => ({ error: null }),
+  signOut: async () => ({ error: null }),
+  loading: true,
+};
+
+const AuthContext = createContext<AuthContextType>(initialAuthContext);
 
 export const useAuth = (): AuthContextType => {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 };
 
 interface AuthProviderProps {
@@ -46,7 +66,6 @@ export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
   });
 
   useEffect(() => {
-    // Listen for auth changes and update the cache
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -60,7 +79,6 @@ export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
 
   const signUp = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
-    // Re-fetch user after sign-up in case session/user is available/confirmed
     if (!error) {
       await queryClient.invalidateQueries({ queryKey: ["auth", "user"] });
     }
@@ -72,7 +90,6 @@ export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
       email,
       password,
     });
-    // Re-fetch user after sign-in
     if (!error) {
       await queryClient.invalidateQueries({ queryKey: ["auth", "user"] });
     }
@@ -81,9 +98,21 @@ export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
-    // Update cache to null on sign-out
     if (!error) {
       queryClient.setQueryData(["auth", "user"], null);
+    }
+    return { error };
+  };
+
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + "/dashboard",
+      },
+    });
+    if (!error) {
+      await queryClient.invalidateQueries({ queryKey: ["auth", "user"] });
     }
     return { error };
   };
@@ -92,6 +121,7 @@ export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
     user: user ?? null,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     loading: isLoading,
   };

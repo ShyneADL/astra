@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SelectedConversationProvider } from "@/contexts/SelectedConversationContext";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AuthPage from "./components/Auth/SignUpPage";
 import LoginPage from "./components/Auth/LoginPage";
 import Dashboard from "./components/Dashboard";
@@ -34,13 +35,16 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
+  const queryClient = new QueryClient();
   return (
-    <div className="App">
-      <AuthProvider>
-        <SelectedConversationProvider>
-          <RouterProvider router={router} />
-        </SelectedConversationProvider>
-      </AuthProvider>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <div className="App">
+        <AuthProvider>
+          <SelectedConversationProvider>
+            <RouterProvider router={router} />
+          </SelectedConversationProvider>
+        </AuthProvider>
+      </div>
+    </QueryClientProvider>
   );
 }
