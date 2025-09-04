@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { type LoginInput, loginSchema } from "@/lib/validations/auth";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Mail,
   Lock,
@@ -12,31 +17,33 @@ import {
   Heart,
   Brain,
 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const { signIn, signInWithGoogle } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginSchema),
+  });
+
+  const onSubmit = async (data: LoginInput) => {
     try {
-      const { error } = await signIn(email, password);
+      setError(null);
+      const { error } = await signIn(data.email, data.password);
       if (error) {
         setError(error.message);
       } else {
         navigate("/dashboard", { replace: true });
       }
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError("An unexpected error occurred");
     }
   };
 
@@ -127,7 +134,7 @@ export default function LoginPage() {
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                   <div>
                     <label
                       htmlFor="email"
@@ -140,15 +147,17 @@ export default function LoginPage() {
                         <Mail className="h-5 w-5 text-gray-400" />
                       </div>
                       <input
-                        id="email"
+                        {...register("email")}
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-3 pl-10 text-sm"
                         placeholder="Enter your email"
                       />
                     </div>
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-500">
+                        {errors.email.message}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -163,11 +172,8 @@ export default function LoginPage() {
                         <Lock className="h-5 w-5 text-gray-400" />
                       </div>
                       <input
-                        id="password"
+                        {...register("password")}
                         type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-12 pl-10 text-sm"
                         placeholder="Enter your password"
                       />
@@ -183,35 +189,28 @@ export default function LoginPage() {
                         )}
                       </button>
                     </div>
+                    {errors.password && (
+                      <p className="mt-1 text-sm text-red-500">
+                        {errors.password.message}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <label className="text-muted-foreground flex items-center text-sm">
-                      <input
-                        type="checkbox"
-                        className="border-border text-grey h-4 w-4 rounded"
-                      />
-                      <span className="ml-2">Remember me</span>
-                    </label>
-                    <a
-                      href="#"
-                      className="text-grey hover:text-grey/80 text-sm"
-                    >
-                      Forgot password?
-                    </a>
-                  </div>
+                  {error && (
+                    <div className="rounded-md bg-red-50 p-4">
+                      <p className="text-sm text-red-500">{error}</p>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
                     className="cursor-pointer login-btn relative flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition-all duration-300"
-                    disabled={loading}
+                    disabled={isSubmitting}
                   >
-                    {loading ? (
+                    {isSubmitting ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
-                        <span className="ml-2">
-                          Bringing you back in 3..2...1...
-                        </span>
+                        <span className="ml-2">Authenticating...</span>
                       </>
                     ) : (
                       "Sign in to your account"

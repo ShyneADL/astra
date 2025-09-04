@@ -14,27 +14,37 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { type SignUpInput, signUpSchema } from "@/lib/validations/auth";
 
 export default function SignUpPage() {
   const { signUp, signInWithGoogle } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<SignUpInput>({
+    resolver: zodResolver(signUpSchema),
+  });
+
+  const onSubmit = async (data: SignUpInput) => {
     try {
-      const { error } = await signUp(email, password);
+      setError(null);
+      setLoading(true);
+      const { error } = await signUp(data.email, data.password);
       if (error) {
         setError(error.message);
       } else {
         navigate("/dashboard", { replace: true });
       }
+    } catch (err) {
+      setError("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -126,7 +136,11 @@ export default function SignUpPage() {
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form
+                  onSubmit={handleSubmit(onSubmit)}
+                  className="space-y-6"
+                  noValidate
+                >
                   <div>
                     <label
                       htmlFor="email"
@@ -141,13 +155,17 @@ export default function SignUpPage() {
                       <input
                         id="email"
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        {...register("email")}
                         required
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-3 pl-10 text-sm"
                         placeholder="Enter your email"
                       />
                     </div>
+                    {errors.email && (
+                      <p className="mt-2 text-sm text-red-600">
+                        {errors.email.message}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -164,8 +182,7 @@ export default function SignUpPage() {
                       <input
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        {...register("password")}
                         required
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-12 pl-10 text-sm"
                         placeholder="Enter your password"
@@ -182,6 +199,11 @@ export default function SignUpPage() {
                         )}
                       </button>
                     </div>
+                    {errors.password && (
+                      <p className="mt-2 text-sm text-red-600">
+                        {errors.password.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -203,9 +225,9 @@ export default function SignUpPage() {
                   <button
                     type="submit"
                     className="cursor-pointer login-btn relative flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition-all duration-300"
-                    disabled={loading}
+                    disabled={loading || isSubmitting}
                   >
-                    {loading ? (
+                    {loading || isSubmitting ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span className="ml-2">
