@@ -1,22 +1,5 @@
 import { supabase } from "./supabase";
 
-// Save a chat message
-export const saveChatMessage = async (
-  sessionId: string,
-  role: string,
-  content: string
-) => {
-  const { data, error } = await supabase.from("chat_messages").insert({
-    session_id: sessionId,
-    user_id: (await supabase.auth.getUser()).data.user?.id,
-    role,
-    content,
-  });
-
-  if (error) throw error;
-  return data;
-};
-
 export const getChatMessages = async (sessionId: string) => {
   const { data, error } = await supabase
     .from("chat_messages")
