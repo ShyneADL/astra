@@ -11,7 +11,12 @@ const app = express();
 const port = 3001;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://astra-t1pe.onrender.com"],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Initialize Supabase
