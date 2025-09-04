@@ -63,7 +63,7 @@ export default function LoginPage() {
         <div className="bg-white/50  overflow-hidden rounded-[40px] shadow-2xl">
           <div className="grid min-h-[700px] lg:grid-cols-2">
             {/* Left Side */}
-            <div className="brand-side relative m-4 rounded-3xl bg-[url('/login-bg.jpg')] bg-cover p-12 text-white">
+            <div className="brand-side relative m-4 rounded-3xl bg-[url('/login-bg.webp')] bg-cover p-12 text-white">
               <div className="absolute inset-0 flex-1 bg-black/50 rounded-3xl z-[1]"></div>
               <div className="relative z-[2]">
                 <p className="text-white mb-12 text-lg font-semibold uppercase z-[2]">
