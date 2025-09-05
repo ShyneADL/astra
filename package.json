@@ -7,9 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "server": "node server/index.js",
-    "dev:server": "nodemon server/index.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.11.0",
@@ -17,7 +15,6 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@google/genai": "^1.14.0",
-    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.1",
     "@mui/material": "^7.3.2",
     "@radix-ui/react-dialog": "^1.1.15",
