@@ -9,8 +9,8 @@ import { SelectedConversationProvider } from "@/contexts/SelectedConversationCon
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./App.css";
 
-const SignupPage = lazy(() => import("./components/Auth/SignUpPage"));
-const LoginPage = lazy(() => import("./components/Auth/LoginPage"));
+const SignupPage = lazy(() => import("./components/auth/SignUpPage"));
+const LoginPage = lazy(() => import("./components/auth/LoginPage"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
 
 const LoadingFallback = () => (

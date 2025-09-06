@@ -3,8 +3,9 @@ import { useState, useEffect } from "react";
 
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import VoiceChat from "./AIChat/VoiceChat";
-import Conversation from "./AIChat/Conversation";
+import VoiceChat from "./chat/VoiceChat";
+import Conversation from "./chat/Conversation";
+import { NewChat } from "./chat/NewChat";
 import {
   SelectedConversationProvider,
   useSelectedConversation,
@@ -19,7 +20,6 @@ import {
 } from "./ui/select";
 import { Button } from "./ui/button";
 import { PlusCircle } from "lucide-react";
-import { NewChat } from "./AIChat/NewChat";
 
 interface Message {
   id: string;
