@@ -54,15 +54,19 @@ export const AuthProvider = ({ children }: AuthProviderProps): ReactElement => {
   const { data: user, isLoading } = useQuery<User | null, AuthError>({
     queryKey: ["auth", "user"],
     queryFn: async () => {
+      console.log("AuthContext: Fetching user session...");
       const {
         data: { session },
         error,
       } = await supabase.auth.getSession();
+      console.log("AuthContext: Session result:", { session: !!session, user: !!session?.user, error });
       if (error) throw error;
       return session?.user ?? null;
     },
     staleTime: Infinity,
     gcTime: Infinity,
+    retry: 3,
+    retryDelay: 500,
   });
 
   useEffect(() => {

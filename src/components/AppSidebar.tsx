@@ -27,7 +27,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   const [displayName, setDisplayName] = useState<string | null>(null);
   const { setSelectedId } = useSelectedConversation();
   const queryClient = useQueryClient();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const {
@@ -35,27 +35,43 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["chat_sessions"],
+    queryKey: ["chat_sessions", user?.id],
     queryFn: async (): Promise<ConversationItem[]> => {
+      console.log("Fetching conversations...");
+      console.log("Current user:", user);
+      
+      if (!user?.id) {
+        console.log("No user ID found, returning empty array");
+        return [];
+      }
+      
       const { data, error } = await supabase
         .from("chat_sessions")
         .select("id, title")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
+      console.log("Query result:", { data, error });
+      
       if (error) throw error;
       return data || [];
     },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    enabled: !!user?.id, // Only run query if user ID exists
+    retry: 3,
+    retryDelay: 1000,
   });
 
   useEffect(() => {
+    if (!user?.id) return;
+    
     const channel = supabase
       .channel("chat_sessions_changes")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_sessions" },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+          queryClient.invalidateQueries({ queryKey: ["chat_sessions", user.id] });
         }
       )
       .subscribe();
@@ -63,7 +79,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, user?.id]);
 
   useEffect(() => {
     let isMounted = true;
@@ -120,6 +136,18 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
     overscan: 5,
   });
 
+
+  // Debug logging for rendering
+  console.log("Render state:", {
+    user: !!user,
+    userId: user?.id,
+    authLoading,
+    isLoading,
+    isError,
+    conversationsLength: conversations.length,
+    conversations: conversations.slice(0, 3), // Show first 3 for debugging
+    queryEnabled: !!user?.id,
+  });
   return (
     <Sidebar className="bg-white">
       <SidebarContent>
@@ -131,8 +159,9 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
               className="size-10 object-contain"
             />
           </div>
+          {authLoading && <Skeleton className="h-full flex-1 w-full" />}
           {user && isLoading && <Skeleton className="h-full flex-1 w-full" />}
-          {!user && (
+          {!authLoading && !user && (
             <p className="text-sm text-gray-500">
               <Link to="/login" className="hover:underline hover:text-blue-400">
                 Login
@@ -143,49 +172,17 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
           {isError && (
             <p className="text-sm text-red-500">Failed to load conversations</p>
           )}
-          <Suspense
-            fallback={
-              <Skeleton
-                className="min-h-[50vh] h-full flex-1 w-full"
-                animation="pulse"
+          {!authLoading && user && !isLoading && conversations.length === 0 && (
+            <p className="text-sm text-gray-500">No conversations yet</p>
+          )}
+          {conversations.length > 0 && (
+            <div className="max-h-[50vh] overflow-y-auto">
+              <ConversationList
+                conversations={conversations}
+                onSelect={handleConversationClick}
               />
-            }
-          >
-            <div
-              ref={parentRef}
-              className="max-h-[50vh] overflow-y-auto"
-              style={{
-                width: "100%",
-              }}
-            >
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: "100%",
-                  position: "relative",
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualItem) => (
-                  <div
-                    key={conversations[virtualItem.index].id}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: `${virtualItem.size}px`,
-                      transform: `translateY(${virtualItem.start}px)`,
-                    }}
-                  >
-                    <ConversationList
-                      conversations={[conversations[virtualItem.index]]}
-                      onSelect={handleConversationClick}
-                    />
-                  </div>
-                ))}
-              </div>
             </div>
-          </Suspense>
+          )}
 
           <div>
             <Suspense
