@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Message {
   id: string;
@@ -33,6 +34,7 @@ export const NewChat = ({
     maxHeight: 200,
   });
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -45,19 +47,12 @@ export const NewChat = ({
       timestamp: new Date().toISOString(),
     };
 
-    // Create AI message placeholder
-    const aiMessageId = (Date.now() + 1).toString();
-    const aiMessage: Message = {
-      id: aiMessageId,
-      content: "...",
-      sender: "ai",
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedMessages = [...messages, userMessage, aiMessage];
+    const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
+
+    // Store input before clearing it
+    const currentInput = input.trim();
     setInput("");
-    setIsTyping(true);
 
     // Optimistically switch to conversation screen immediately
     onChatStart();
@@ -75,24 +70,30 @@ export const NewChat = ({
         throw new Error("No access token available. Please log in again.");
       }
 
-      // Always request a title for new chats
+      const requestBody = {
+        messages: [
+          {
+            role: "user",
+            content: currentInput,
+          },
+        ],
+        conversationId,
+        message: currentInput,
+        wantTitle: true,
+      };
+
+      console.log(
+        "Sending request body:",
+        JSON.stringify(requestBody, null, 2)
+      );
+
       const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({
-          messages: messages
-            .filter((msg) => msg.sender === "user" || (msg.sender === "ai" && msg.content !== "..."))
-            .map((msg) => ({
-              role: msg.sender === "user" ? "user" : "assistant",
-              content: msg.content,
-            })),
-          conversationId,
-          message: input.trim(),
-          wantTitle: true,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       console.log("Response status:", response.status);
@@ -144,8 +145,15 @@ export const NewChat = ({
           setSessionId(newSession.id);
           setConversationId(newSession.id);
 
-          // Force refresh the sidebar immediately
-          await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+          // Force refresh the sidebar immediately with correct query key
+          await queryClient.invalidateQueries({
+            queryKey: ["chat_sessions", user?.id],
+          });
+
+          // Also trigger a refetch to ensure immediate update
+          await queryClient.refetchQueries({
+            queryKey: ["chat_sessions", user?.id],
+          });
 
           // Wait for a small delay before transitioning
           await new Promise((resolve) => setTimeout(resolve, 100));
@@ -154,50 +162,36 @@ export const NewChat = ({
         }
       }
 
+      // Process response if needed
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
-
-      let aiResponse = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        aiResponse += chunk;
-
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === aiMessageId ? { ...m, content: aiResponse } : m
-          )
-        );
+        // Process chunk as needed
       }
 
       // Transition already handled optimistically
     } catch (error) {
       console.error("Error:", error);
-      
+
       let errorMessage = "Sorry, I encountered an error. Please try again.";
-      
+
       if (error instanceof Error) {
         if (error.message.includes("No access token")) {
           errorMessage = "Authentication required. Please log in to continue.";
-        } else if (error.message.includes("Invalid token") || error.message.includes("401")) {
+        } else if (
+          error.message.includes("Invalid token") ||
+          error.message.includes("401")
+        ) {
           errorMessage = "Your session has expired. Please log in again.";
         }
       }
-      
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === aiMessageId
-            ? {
-                ...msg,
-                content: errorMessage,
-              }
-            : msg
-        )
-      );
-    } finally {
-      setIsTyping(false);
+
+      // Handle error as needed
+      console.error(errorMessage);
     }
   }
 

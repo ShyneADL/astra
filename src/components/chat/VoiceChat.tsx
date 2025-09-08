@@ -49,7 +49,7 @@ export default function VoiceChat() {
       const userId = user?.id ?? "anonymous";
 
       await conversation.startSession({
-        agentId: "agent_0101k32388bjfya8zreq24bbeybb",
+        agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID,
         userId,
         connectionType: "webrtc",
       });

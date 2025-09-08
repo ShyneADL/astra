@@ -37,41 +37,37 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   } = useQuery({
     queryKey: ["chat_sessions", user?.id],
     queryFn: async (): Promise<ConversationItem[]> => {
-      console.log("Fetching conversations...");
-      console.log("Current user:", user);
-      
       if (!user?.id) {
-        console.log("No user ID found, returning empty array");
         return [];
       }
-      
+
       const { data, error } = await supabase
         .from("chat_sessions")
         .select("id, title")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      console.log("Query result:", { data, error });
-      
       if (error) throw error;
       return data || [];
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
-    enabled: !!user?.id, // Only run query if user ID exists
+    staleTime: 1000 * 60 * 5,
+    enabled: !!user?.id,
     retry: 3,
     retryDelay: 1000,
   });
 
   useEffect(() => {
     if (!user?.id) return;
-    
+
     const channel = supabase
       .channel("chat_sessions_changes")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat_sessions" },
         () => {
-          queryClient.invalidateQueries({ queryKey: ["chat_sessions", user.id] });
+          queryClient.invalidateQueries({
+            queryKey: ["chat_sessions", user.id],
+          });
         }
       )
       .subscribe();
@@ -135,7 +131,6 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
     estimateSize: () => 60,
     overscan: 5,
   });
-
 
   // Debug logging for rendering
   console.log("Render state:", {

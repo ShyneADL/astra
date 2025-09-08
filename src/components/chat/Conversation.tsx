@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -27,13 +27,15 @@ export default function Conversation({
   setMessages,
 }: ConversationProps) {
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 36,
     maxHeight: 200,
   });
   const { selectedId } = useSelectedConversation();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
   interface Message {
     id: string;
@@ -47,7 +49,6 @@ export default function Conversation({
 
     let cancelled = false;
     (async () => {
-      setIsTyping(true);
       try {
         const session = await getChatSessionById(selectedId);
         if (!session?.id) {
@@ -87,7 +88,6 @@ export default function Conversation({
         console.error("Failed to load conversation:", err);
         if (!cancelled) setMessages([]);
       } finally {
-        if (!cancelled) setIsTyping(false);
       }
     })();
 
@@ -95,6 +95,44 @@ export default function Conversation({
       cancelled = true;
     };
   }, [selectedId]);
+
+  // Listen for scroll events to track if user is at bottom
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      // Add buffer to account for minor rendering differences
+      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 1) {
+        setIsScrolledToBottom(true);
+      } else {
+        setIsScrolledToBottom(false);
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Smart auto-scroll: only scroll if user is at bottom
+  useEffect(() => {
+    if (isScrolledToBottom && messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [initialMessages, isScrolledToBottom]);
+
+  // Initial scroll to bottom on load
+  useEffect(() => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+      }, 200);
+    }
+  }, []);
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -110,7 +148,6 @@ export default function Conversation({
     const updatedMessages = [...initialMessages, userMessage];
     setMessages(updatedMessages);
     setInput("");
-    setIsTyping(true);
 
     const aiMessageId = (Date.now() + 1).toString();
     const aiMessage: Message = {
@@ -137,7 +174,8 @@ export default function Conversation({
             role: sender === "user" ? "user" : "assistant",
             content,
           })),
-          conversationId: selectedId || conversationId,
+          conversationId: selectedId, // Always use selectedId for existing conversations
+          wantTitle: false, // Don't generate titles for existing conversations
         }),
       });
 
@@ -151,18 +189,20 @@ export default function Conversation({
       }
 
       const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
+      const decoder = new TextDecoder();
 
       let aiResponse = "";
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
+
+        // Update the AI message with streaming content in real-time
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === aiMessageId ? { ...m, content: aiResponse } : m
+          prev.map((msg) =>
+            msg.id === aiMessageId ? { ...msg, content: aiResponse } : msg
           )
         );
       }
@@ -178,8 +218,6 @@ export default function Conversation({
             : msg
         )
       );
-    } finally {
-      setIsTyping(false);
     }
   }
 
@@ -200,7 +238,7 @@ export default function Conversation({
   return (
     <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
       <div className="flex h-full flex-col justify-between">
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto p-4">
           {initialMessages.map((message) => (
             <ChatBubble
               key={message.id}
@@ -209,26 +247,7 @@ export default function Conversation({
               timestamp={new Date(message.timestamp)}
             />
           ))}
-
-          {isTyping && (
-            <div className="text-muted-foreground flex items-center space-x-2 text-sm">
-              <div className="flex space-x-1">
-                <div
-                  className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
-                  style={{ animationDelay: "0ms" }}
-                ></div>
-                <div
-                  className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
-                  style={{ animationDelay: "150ms" }}
-                ></div>
-                <div
-                  className="bg-muted-foreground/70 h-2 w-2 animate-bounce rounded-full"
-                  style={{ animationDelay: "300ms" }}
-                ></div>
-              </div>
-              <span>AI is typing...</span>
-            </div>
-          )}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="border-border border-t p-4">
