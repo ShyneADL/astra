@@ -6,6 +6,7 @@ import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext"; // Add this import
+import { on } from "events";
 
 interface Message {
   id: string;
@@ -34,7 +35,7 @@ export const NewChat = ({
     maxHeight: 200,
   });
   const queryClient = useQueryClient();
-  const { setSelectedId } = useSelectedConversation(); // Add this line
+  const { setSelectedId } = useSelectedConversation();
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -59,37 +60,47 @@ export const NewChat = ({
     const updatedMessages = [...messages, userMessage, aiMessage];
     setMessages(updatedMessages);
     
-    // Store input before clearing it
     const currentInput = input.trim();
     setInput("");
     setIsTyping(true);
+    onChatStart()
 
     const API_URL = "http://localhost:3001";
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        throw new Error("No access token available. Please log in again.");
+      }
 
-      // Always request a title for new chats
       const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          messages: messages.map((msg) => ({
-            role: msg.sender === "user" ? "user" : "model",
-            content: msg.content,
-          })),
+         messages: messages
+            .filter((msg) => msg.sender === "user" || (msg.sender === "ai" && msg.content !== "..."))
+            .map((msg) => ({
+              role: msg.sender === "user" ? "user" : "assistant",
+              content: msg.content,
+            })),
           conversationId,
           message: currentInput,
           wantTitle: true,
         }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to get AI response");
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Server error response:", errorText);
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
+      }
+
+      if (!response.body) {
+        throw new Error("No response body received");
       }
 
       console.log(
@@ -110,7 +121,6 @@ export const NewChat = ({
 
       if (generatedTitle && !sessionId) {
         try {
-          // Create a new chat session in Supabase with the generated title
           const { data: newSession, error } = await supabase
             .from("chat_sessions")
             .insert([
@@ -162,18 +172,25 @@ export const NewChat = ({
         );
       }
 
-      // Add a small delay for smooth transition
-      setTimeout(() => {
-        onChatStart();
-      }, 300);
     } catch (error) {
       console.error("Error:", error);
+      
+      let errorMessage = "Sorry, I encountered an error. Please try again.";
+      
+      if (error instanceof Error) {
+        if (error.message.includes("No access token")) {
+          errorMessage = "Authentication required. Please log in to continue.";
+        } else if (error.message.includes("Invalid token") || error.message.includes("401")) {
+          errorMessage = "Your session has expired. Please log in again.";
+        }
+      }
+      
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === aiMessageId
             ? {
                 ...msg,
-                content: "Sorry, I encountered an error. Please try again.",
+                content: errorMessage,
               }
             : msg
         )

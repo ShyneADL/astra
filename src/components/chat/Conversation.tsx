@@ -174,8 +174,8 @@ export default function Conversation({
             role: sender === "user" ? "user" : "assistant",
             content,
           })),
-          conversationId: selectedId, // Always use selectedId for existing conversations
-          wantTitle: false, // Don't generate titles for existing conversations
+          conversationId: selectedId, 
+          wantTitle: false, 
         }),
       });
 
@@ -199,7 +199,6 @@ export default function Conversation({
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
 
-        // Update the AI message with streaming content in real-time
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === aiMessageId ? { ...msg, content: aiResponse } : msg

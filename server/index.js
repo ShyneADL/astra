@@ -31,6 +31,8 @@ app.post("/api/chat", async (req, res) => {
     const { messages, conversationId, wantTitle, message } = req.body;
     const authHeader = req.headers.authorization;
 
+    console.log("Received request body:", JSON.stringify(req.body, null, 2)); // Debug log
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "No authorization token provided" });
     }
@@ -44,6 +46,11 @@ app.post("/api/chat", async (req, res) => {
 
     if (authError || !user) {
       return res.status(401).json({ error: "Invalid token" });
+    }
+
+    // Validate messages array
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: "Messages array is required and cannot be empty" });
     }
 
     let generatedTitle = null;
@@ -104,7 +111,15 @@ app.post("/api/chat", async (req, res) => {
       }
     }
 
+    // Get the last message (current user message)
     const userMessage = messages[messages.length - 1];
+    
+    // Validate userMessage structure
+    if (!userMessage || !userMessage.content) {
+      return res.status(400).json({ error: "Invalid message structure" });
+    }
+
+    console.log("Processing user message:", userMessage); // Debug log
 
     const { error: userMsgError } = await supabase
       .from("chat_messages")
@@ -120,7 +135,6 @@ app.post("/api/chat", async (req, res) => {
       return res.status(500).json({ error: "Failed to save user message" });
     }
 
-    // Prepare conversation history for Gemini
     const { data: chatHistory, error: historyError } = await supabase
       .from("chat_messages")
       .select("role, content")
@@ -137,9 +151,7 @@ app.post("/api/chat", async (req, res) => {
       parts: [{ text: msg.content }],
     }));
 
-    const systemPrompt =
-      "You are a compassionate and professional AI therapist. Your role is to provide emotional support, active listening, and helpful guidance to users seeking mental health assistance. Always maintain a warm, empathetic, and non-judgmental tone. Focus on understanding the user's feelings and providing constructive responses that promote mental well-being.";
-
+    const systemPrompt = process.env.SYSTEM_PROMPT;
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
       systemInstruction: {
@@ -161,6 +173,7 @@ app.post("/api/chat", async (req, res) => {
     }
 
     // Send message and stream response
+    console.log("Sending message to Gemini:", userMessage.content); // Debug log
     const result = await chat.sendMessageStream(userMessage.content);
 
     let fullResponse = "";
