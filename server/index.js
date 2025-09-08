@@ -31,34 +31,19 @@ app.post("/api/chat", async (req, res) => {
     const { messages, conversationId, wantTitle, message } = req.body;
     const authHeader = req.headers.authorization;
 
-    console.log("Received request body:", JSON.stringify(req.body, null, 2));
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "No authorization token provided" });
     }
 
     const token = authHeader.split(" ")[1];
 
-    let user;
-    try {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser(token);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(token);
 
-      if (authError) {
-        console.error("Auth error:", authError);
-        return res.status(401).json({ error: "Invalid token" });
-      }
-
-      if (!authUser) {
-        return res.status(401).json({ error: "No user found" });
-      }
-
-      user = authUser;
-    } catch (error) {
-      console.error("Network error during auth:", error);
-      return res.status(503).json({ error: "Authentication service unavailable" });
+    if (authError || !user) {
+      return res.status(401).json({ error: "Invalid token" });
     }
 
     let generatedTitle = null;
@@ -86,68 +71,40 @@ app.post("/api/chat", async (req, res) => {
           .slice(0, 80);
       } catch (titleError) {
         console.error("Title generation error:", titleError);
-        // Continue without title if generation fails
-        generatedTitle = "New Chat";
       }
     }
 
     let sessionId = conversationId;
 
     if (!sessionId) {
-      try {
-        const { data: session, error: sessionError } = await supabase
+      const { data: session, error: sessionError } = await supabase
+        .from("chat_sessions")
+        .insert({
+          user_id: user.id,
+        })
+        .select()
+        .single();
+
+      if (sessionError) {
+        console.error("Session creation error:", sessionError);
+        return res.status(500).json({ error: "Failed to create chat session" });
+      }
+
+      sessionId = session.id;
+
+      if (generatedTitle) {
+        const { error: updateError } = await supabase
           .from("chat_sessions")
-          .insert({
-            user_id: user.id,
-          })
-          .select()
-          .single();
+          .update({ title: generatedTitle })
+          .eq("id", sessionId);
 
-        if (sessionError) {
-          console.error("Session creation error:", sessionError);
-          return res.status(500).json({ error: "Failed to create chat session" });
+        if (updateError) {
+          console.error("Title update error:", updateError);
         }
-
-        sessionId = session.id;
-
-        if (generatedTitle) {
-          const { error: updateError } = await supabase
-            .from("chat_sessions")
-            .update({ title: generatedTitle })
-            .eq("id", sessionId);
-
-          if (updateError) {
-            console.error("Title update error:", updateError);
-          }
-        }
-      } catch (error) {
-        console.error("Network error during session creation:", error);
-        return res.status(503).json({ error: "Database service unavailable" });
       }
     }
 
-    // Validate messages array and get the last user message
-    if (!messages || messages.length === 0) {
-      console.error("No messages provided in request");
-      return res.status(400).json({ error: "No messages provided" });
-    }
-
-    console.log("Messages received:", JSON.stringify(messages, null, 2));
-
     const userMessage = messages[messages.length - 1];
-    
-    if (!userMessage) {
-      console.error("No user message found");
-      return res.status(400).json({ error: "No user message found" });
-    }
-
-    // Handle both content and parts format for compatibility
-    const messageContent = userMessage.content || (userMessage.parts && userMessage.parts[0]?.text) || message;
-    
-    if (!messageContent) {
-      console.error("No message content found:", { userMessage, message });
-      return res.status(400).json({ error: "No message content found" });
-    }
 
     const { error: userMsgError } = await supabase
       .from("chat_messages")
@@ -155,7 +112,7 @@ app.post("/api/chat", async (req, res) => {
         session_id: sessionId,
         user_id: user.id,
         role: "user",
-        content: messageContent,
+        content: userMessage.content,
       });
 
     if (userMsgError) {
@@ -185,39 +142,47 @@ app.post("/api/chat", async (req, res) => {
 
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      systemInstruction: systemPrompt,
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: systemPrompt }],
+      },
     });
 
     const chat = model.startChat({
       history: geminiHistory,
     });
 
+    // Set up streaming response
     res.setHeader("Content-Type", "text/plain");
     res.setHeader("Transfer-Encoding", "chunked");
     res.setHeader("X-Conversation-Id", sessionId);
-
     if (generatedTitle) {
       res.setHeader("X-Generated-Title", generatedTitle);
     }
 
-    const result = await chat.sendMessageStream(messageContent);
+    // Send message and stream response
+    const result = await chat.sendMessageStream(userMessage.content);
 
-    let aiResponse = "";
+    let fullResponse = "";
+
     for await (const chunk of result.stream) {
       const chunkText = chunk.text();
-      aiResponse += chunkText;
+      fullResponse += chunkText;
       res.write(chunkText);
     }
 
-    const { error: aiMsgError } = await supabase.from("chat_messages").insert({
-      session_id: sessionId,
-      user_id: user.id,
-      role: "assistant",
-      content: aiResponse,
-    });
+    // Save assistant response to database
+    const { error: assistantMsgError } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: sessionId,
+        user_id: user.id,
+        role: "assistant",
+        content: fullResponse,
+      });
 
-    if (aiMsgError) {
-      console.error("AI message save error:", aiMsgError);
+    if (assistantMsgError) {
+      console.error("Assistant message save error:", assistantMsgError);
     }
 
     res.end();

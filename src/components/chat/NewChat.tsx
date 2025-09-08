@@ -70,44 +70,26 @@ export const NewChat = ({
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
 
-      console.log("Session data:", sessionData);
-      console.log("Access token:", accessToken ? "Present" : "Missing");
-
-      if (!accessToken) {
-        throw new Error("No access token available. Please log in again.");
-      }
-
       // Always request a title for new chats
       const response = await fetch(`${API_URL}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
-          messages: [
-            {
-              role: "user",
-              content: currentInput,
-            },
-          ],
+          messages: messages.map((msg) => ({
+            role: msg.sender === "user" ? "user" : "model",
+            content: msg.content,
+          })),
           conversationId,
           message: currentInput,
           wantTitle: true,
         }),
       });
 
-      console.log("Response status:", response.status);
-      console.log("Response ok:", response.ok);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server error response:", errorText);
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
-      }
-
-      if (!response.body) {
-        throw new Error("No response body received");
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to get AI response");
       }
 
       console.log(
@@ -180,25 +162,18 @@ export const NewChat = ({
         );
       }
 
+      // Add a small delay for smooth transition
+      setTimeout(() => {
+        onChatStart();
+      }, 300);
     } catch (error) {
       console.error("Error:", error);
-      
-      let errorMessage = "Sorry, I encountered an error. Please try again.";
-      
-      if (error instanceof Error) {
-        if (error.message.includes("No access token")) {
-          errorMessage = "Authentication required. Please log in to continue.";
-        } else if (error.message.includes("Invalid token") || error.message.includes("401")) {
-          errorMessage = "Your session has expired. Please log in again.";
-        }
-      }
-      
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === aiMessageId
             ? {
                 ...msg,
-                content: errorMessage,
+                content: "Sorry, I encountered an error. Please try again.",
               }
             : msg
         )
