@@ -5,7 +5,6 @@ import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
-// Server is responsible for creating chat sessions and returns the ID via headers
 
 interface Message {
   id: string;

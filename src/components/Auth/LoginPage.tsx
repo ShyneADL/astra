@@ -52,8 +52,6 @@ export default function LoginPage() {
       const { error } = await signInWithGoogle();
       if (error) {
         setError(error.message);
-      } else {
-        navigate("/dashboard", { replace: true });
       }
     } catch (err) {
       setError("An unexpected error occurred");
@@ -130,7 +128,7 @@ export default function LoginPage() {
                     Welcome back
                   </h2>
                   <p className="mt-2 text-sm text-stone-600">
-                    Hey there, let's pick up from where we left from :)
+                    Hey there, let's pick up from where we left off :)
                   </p>
                 </div>
 
