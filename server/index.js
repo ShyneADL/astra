@@ -12,7 +12,7 @@ const port = 3001;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://astra-t1pe.onrender.com"],
+    origin: ["http://localhost:5173", "https://astra-smoky.vercel.app/"],
     credentials: true,
   })
 );
