@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "../ui/button";
 import { supabase } from "@/lib/supabase";
-import { useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
@@ -28,7 +27,6 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
     minHeight: 36,
     maxHeight: 200,
   });
-  const queryClient = useQueryClient();
   const { setSelectedId } = useSelectedConversation();
 
   async function handleSendMessage(e: React.FormEvent) {
@@ -84,7 +82,7 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
               role: msg.sender === "user" ? "user" : "assistant",
               content: msg.content,
             })),
-          conversationId: null,
+          conversationId,
           message: currentInput,
           wantTitle: true,
         }),
