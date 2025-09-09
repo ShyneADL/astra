@@ -64,6 +64,8 @@ export default function SignUpPage() {
           type: "manual",
           message: error.message,
         });
+      } else {
+        navigate("/dashboard", { replace: true });
       }
     } catch (err) {
       setFormError("root", {

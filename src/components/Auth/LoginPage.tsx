@@ -52,6 +52,8 @@ export default function LoginPage() {
       const { error } = await signInWithGoogle();
       if (error) {
         setError(error.message);
+      } else {
+        navigate("/dashboard", { replace: true });
       }
     } catch (err) {
       setError("An unexpected error occurred");
