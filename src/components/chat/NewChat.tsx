@@ -84,7 +84,7 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
               role: msg.sender === "user" ? "user" : "assistant",
               content: msg.content,
             })),
-          conversationId,
+          conversationId: null,
           message: currentInput,
           wantTitle: true,
         }),
@@ -100,11 +100,11 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
         throw new Error("No response body received");
       }
 
+      // await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
       const serverConversationId = response.headers.get("X-Conversation-Id");
       if (serverConversationId) {
         setConversationId(serverConversationId);
         setSelectedId(serverConversationId);
-        await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
       }
       console.log("serverConversationId", serverConversationId);
       const reader = response.body.getReader();

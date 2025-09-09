@@ -94,12 +94,13 @@ app.post("/api/chat", async (req, res) => {
         .select()
         .single();
 
-      if (sessionError) {
+      if (sessionError || !session?.id) {
         console.error("Session creation error:", sessionError);
         return res.status(500).json({ error: "Failed to create chat session" });
       }
 
-      sessionId = conversationId;
+      // Use the newly created session id
+      sessionId = session.id;
 
       if (generatedTitle) {
         const { error: updateError } = await supabase
@@ -179,6 +180,11 @@ app.post("/api/chat", async (req, res) => {
 
     // Set up streaming response
     res.setHeader("Content-Type", "text/plain");
+    // Allow browser to read our custom headers
+    res.setHeader(
+      "Access-Control-Expose-Headers",
+      "X-Conversation-Id, X-Generated-Title"
+    );
     res.setHeader("Transfer-Encoding", "chunked");
     res.setHeader("X-Conversation-Id", sessionId);
     if (generatedTitle) {
