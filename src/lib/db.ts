@@ -11,20 +11,6 @@ export const getChatMessages = async (sessionId: string) => {
   return data;
 };
 
-export const createChatSession = async (title: string) => {
-  const { data, error } = await supabase
-    .from("chat_sessions")
-    .insert({
-      user_id: (await supabase.auth.getUser()).data.user?.id,
-      title,
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
-};
-
 export const getChatSessionById = async (id: string) => {
   const { data: auth } = await supabase.auth.getUser();
   const userId = auth.user?.id;
