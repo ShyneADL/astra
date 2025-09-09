@@ -33,7 +33,7 @@ export default function Conversation({
     minHeight: 36,
     maxHeight: 200,
   });
-  const { selectedId } = useSelectedConversation();
+  const { selectedId, setSelectedId } = useSelectedConversation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
@@ -47,7 +47,6 @@ export default function Conversation({
 
   useEffect(() => {
     if (!selectedId) return;
-
     let cancelled = false;
     (async () => {
       try {
@@ -159,7 +158,7 @@ export default function Conversation({
     const aiMessageId = (Date.now() + 1).toString();
     const aiMessage: Message = {
       id: aiMessageId,
-      content: "", // Will show typing indicator via component
+      content: "",
       sender: "ai",
       timestamp: new Date().toISOString(),
     };
@@ -182,7 +181,8 @@ export default function Conversation({
             role: sender === "user" ? "user" : "assistant",
             content,
           })),
-          conversationId: selectedId,
+          // Prefer globally selected conversation; fall back to local when missing
+          conversationId: selectedId ?? conversationId,
           message: currentInput,
           wantTitle: false,
         }),
@@ -192,12 +192,23 @@ export default function Conversation({
         throw new Error("Failed to get AI response");
       }
 
+      // Adopt the server-issued conversation id and propagate to global selection
+      const serverConversationId = response.headers.get("X-Conversation-Id");
+      if (serverConversationId) {
+        if (conversationId !== serverConversationId) {
+          setConversationId(serverConversationId);
+        }
+        if (selectedId !== serverConversationId) {
+          setSelectedId(serverConversationId);
+        }
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
       let aiResponse = "";
       let lastUpdateTime = 0;
-      const throttleMs = 16; // ~60fps for smooth updates
+      const throttleMs = 16;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -273,9 +284,7 @@ export default function Conversation({
               message={message.content}
               isUser={message.sender === "user"}
               timestamp={new Date(message.timestamp)}
-              isStreaming={
-                isStreaming && message.sender === "ai"
-              }
+              isStreaming={isStreaming && message.sender === "ai"}
             />
           ))}
           <div ref={messagesEndRef} />

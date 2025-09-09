@@ -1,6 +1,4 @@
-// File: Dashboard.tsx — function Dashboard
 import { useState, useEffect } from "react";
-
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import VoiceChat from "./chat/VoiceChat";
@@ -46,21 +44,17 @@ export default function Dashboard() {
 
     const loadMessages = async () => {
       try {
-        const messages = await getChatMessages(selectedId);
-        if (messages) {
-          const formattedMessages = messages.map((msg: any) => ({
+        const fetchedMessages = await getChatMessages(selectedId);
+        if (fetchedMessages) {
+          const formattedMessages = fetchedMessages.map((msg: any) => ({
             id: String(msg.id),
             content: msg.content,
             sender: (msg.role === "assistant" ? "ai" : "user") as "user" | "ai",
             timestamp: msg.created_at,
           }));
 
-          // Only load messages if we don't already have an active chat with messages
-          // This prevents overwriting optimistic messages during new chat creation
-          if (!hasActiveChat || messages.length === 0) {
-            setMessages(formattedMessages);
-            setHasActiveChat(true);
-          }
+          setMessages(formattedMessages);
+          setHasActiveChat(true);
         }
       } catch (error) {
         console.error("Failed to load messages:", error);

@@ -99,7 +99,7 @@ app.post("/api/chat", async (req, res) => {
         return res.status(500).json({ error: "Failed to create chat session" });
       }
 
-      sessionId = session.id;
+      sessionId = conversationId;
 
       if (generatedTitle) {
         const { error: updateError } = await supabase
@@ -125,7 +125,6 @@ app.post("/api/chat", async (req, res) => {
       }
     }
 
-    // Get the last message (current user message)
     const userMessage = messages[messages.length - 1];
 
     // Validate userMessage structure

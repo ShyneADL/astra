@@ -6,7 +6,7 @@ import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
-import { createChatSession } from "@/lib/db";
+// Server is responsible for creating chat sessions and returns the ID via headers
 
 interface Message {
   id: string;
@@ -21,7 +21,6 @@ interface NewChatProps {
 }
 
 export const NewChat = ({ messages, setMessages }: NewChatProps) => {
-  const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -101,37 +100,13 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
         throw new Error("No response body received");
       }
 
-      console.log(
-        "Response headers:",
-        Object.fromEntries(response.headers.entries())
-      );
-      console.log(
-        "Generated title:",
-        response.headers.get("X-Generated-Title")
-      );
-
-      const generatedTitle = response.headers.get("X-Generated-Title");
-
-      if (conversationId) {
-        setConversationId(conversationId);
+      const serverConversationId = response.headers.get("X-Conversation-Id");
+      if (serverConversationId) {
+        setConversationId(serverConversationId);
+        setSelectedId(serverConversationId);
+        await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
       }
-
-      if (generatedTitle && !sessionId) {
-        try {
-          const newSession = await createChatSession(generatedTitle);
-
-          setSessionId(newSession.id);
-          setConversationId(newSession.id);
-
-          setSelectedId(newSession.id);
-          console.log("Selected ID:", newSession.id);
-
-          await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
-        } catch (error) {
-          console.error("Failed to create session with title:", error);
-        }
-      }
-
+      console.log("serverConversationId", serverConversationId);
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
