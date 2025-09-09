@@ -50,7 +50,9 @@ app.post("/api/chat", async (req, res) => {
 
     // Validate messages array
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({ error: "Messages array is required and cannot be empty" });
+      return res
+        .status(400)
+        .json({ error: "Messages array is required and cannot be empty" });
     }
 
     let generatedTitle = null;
@@ -109,11 +111,23 @@ app.post("/api/chat", async (req, res) => {
           console.error("Title update error:", updateError);
         }
       }
+    } else {
+      const { data: existingSession, error: sessionCheckError } = await supabase
+        .from("chat_sessions")
+        .select("id, user_id")
+        .eq("id", sessionId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (sessionCheckError || !existingSession) {
+        console.error("Session validation error:", sessionCheckError);
+        return res.status(400).json({ error: "Invalid conversation ID" });
+      }
     }
 
     // Get the last message (current user message)
     const userMessage = messages[messages.length - 1];
-    
+
     // Validate userMessage structure
     if (!userMessage || !userMessage.content) {
       return res.status(400).json({ error: "Invalid message structure" });

@@ -1,13 +1,16 @@
 import { User, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TypingIndicator from "./TypingIndicator";
+import StreamingText from "./StreamingText";
 
 interface ChatBubbleProps {
   message: string;
   isUser: boolean;
   timestamp: Date;
+  isStreaming?: boolean;
 }
 
-function ChatBubble({ message, isUser, timestamp }: ChatBubbleProps) {
+function ChatBubble({ message, isUser, timestamp, isStreaming = false }: ChatBubbleProps) {
   const formattedTime = timestamp.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -46,7 +49,17 @@ function ChatBubble({ message, isUser, timestamp }: ChatBubbleProps) {
                 : "border-border bg-card text-card-foreground rounded-tl-none border"
             )}
           >
-            <p className="whitespace-pre-wrap">{message}</p>
+            {isUser ? (
+              <p className="whitespace-pre-wrap">{message}</p>
+            ) : (
+              <>
+                {message ? (
+                  <StreamingText text={message} isStreaming={isStreaming} />
+                ) : (
+                  isStreaming && <TypingIndicator isVisible={true} />
+                )}
+              </>
+            )}
           </div>
 
           <span

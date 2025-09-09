@@ -28,6 +28,7 @@ export default function Conversation({
 }: ConversationProps) {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 36,
     maxHeight: 200,
@@ -61,10 +62,10 @@ export default function Conversation({
         }
 
         if (!cancelled) {
-          setConversationId(session.id);
+          setConversationId(selectedId);
         }
 
-        const data = await getChatMessages(session.id);
+        const data = await getChatMessages(selectedId);
 
         const loaded: Message[] =
           (data || []).map((row: any) => {
@@ -82,11 +83,13 @@ export default function Conversation({
           }) ?? [];
 
         if (!cancelled) {
-          setMessages(loaded);
+          if (initialMessages.length === 0) {
+            setMessages(loaded);
+          }
         }
       } catch (err) {
         console.error("Failed to load conversation:", err);
-        if (!cancelled) setMessages([]);
+        if (!cancelled && initialMessages.length === 0) setMessages([]);
       } finally {
       }
     })();
@@ -94,7 +97,7 @@ export default function Conversation({
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedId, initialMessages.length]);
 
   // Listen for scroll events to track if user is at bottom
   useEffect(() => {
@@ -103,15 +106,18 @@ export default function Conversation({
 
     const handleScroll = () => {
       // Add buffer to account for minor rendering differences
-      if (container.scrollTop + container.clientHeight >= container.scrollHeight - 1) {
+      if (
+        container.scrollTop + container.clientHeight >=
+        container.scrollHeight - 1
+      ) {
         setIsScrolledToBottom(true);
       } else {
         setIsScrolledToBottom(false);
       }
     };
 
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Smart auto-scroll: only scroll if user is at bottom
@@ -147,16 +153,18 @@ export default function Conversation({
 
     const updatedMessages = [...initialMessages, userMessage];
     setMessages(updatedMessages);
+    const currentInput = input.trim();
     setInput("");
 
     const aiMessageId = (Date.now() + 1).toString();
     const aiMessage: Message = {
       id: aiMessageId,
-      content: "",
+      content: "", // Will show typing indicator via component
       sender: "ai",
       timestamp: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, aiMessage]);
+    setIsStreaming(true);
 
     const API_URL = "http://localhost:3001";
 
@@ -174,8 +182,9 @@ export default function Conversation({
             role: sender === "user" ? "user" : "assistant",
             content,
           })),
-          conversationId: selectedId, 
-          wantTitle: false, 
+          conversationId: selectedId,
+          message: currentInput,
+          wantTitle: false,
         }),
       });
 
@@ -183,15 +192,13 @@ export default function Conversation({
         throw new Error("Failed to get AI response");
       }
 
-      const serverConvId = response.headers.get("X-Conversation-Id");
-      if (serverConvId && !conversationId) {
-        setConversationId(serverConvId);
-      }
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
       let aiResponse = "";
+      let lastUpdateTime = 0;
+      const throttleMs = 16; // ~60fps for smooth updates
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -199,14 +206,33 @@ export default function Conversation({
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
 
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === aiMessageId ? { ...msg, content: aiResponse } : msg
-          )
-        );
+        const now = Date.now();
+        if (now - lastUpdateTime >= throttleMs || done) {
+          lastUpdateTime = now;
+
+          // Update message content with streaming text
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId ? { ...msg, content: aiResponse } : msg
+            )
+          );
+
+          // Auto-scroll if user is at bottom during streaming
+          if (isScrolledToBottom && messagesContainerRef.current) {
+            requestAnimationFrame(() => {
+              const container = messagesContainerRef.current;
+              if (container) {
+                container.scrollTop = container.scrollHeight;
+              }
+            });
+          }
+        }
       }
+
+      setIsStreaming(false);
     } catch (error) {
       console.error("Error:", error);
+      setIsStreaming(false);
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === aiMessageId
@@ -237,13 +263,19 @@ export default function Conversation({
   return (
     <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
       <div className="flex h-full flex-col justify-between">
-        <div ref={messagesContainerRef} className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div
+          ref={messagesContainerRef}
+          className="flex-1 space-y-4 overflow-y-auto p-4"
+        >
           {initialMessages.map((message) => (
             <ChatBubble
               key={message.id}
               message={message.content}
               isUser={message.sender === "user"}
               timestamp={new Date(message.timestamp)}
+              isStreaming={
+                isStreaming && message.sender === "ai"
+              }
             />
           ))}
           <div ref={messagesEndRef} />
@@ -261,11 +293,10 @@ export default function Conversation({
               onKeyDown={handleKeyDown}
               placeholder="Type your message..."
               className={cn(
-                "flex-1 resize-none bg-transparent px-3 py-2",
-                "border-0 outline-none focus:ring-0",
-                "text-base placeholder:text-muted-foreground",
-                "min-h-[36px] max-h-[200px] overflow-hidden resize-none leading-[100%] placeholder:leading-[100%]"
+                "w-full resize-none border-0 bg-transparent p-0 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+                "min-h-[36px] max-h-[200px]"
               )}
+              disabled={isStreaming}
               style={{
                 overflow: input ? "auto" : "hidden",
               }}
@@ -274,6 +305,7 @@ export default function Conversation({
               type="submit"
               size="icon"
               className="bg-primary hover:bg-primary/90"
+              disabled={isStreaming || !input.trim()}
             >
               <Send className="h-4 w-4" />
             </Button>

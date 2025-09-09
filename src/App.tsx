@@ -7,6 +7,8 @@ import { Suspense, lazy } from "react"; // Add this import
 import { AuthProvider } from "./contexts/AuthContext";
 import { SelectedConversationProvider } from "@/contexts/SelectedConversationContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AuthRoute from "./components/AuthRoute";
 import "./App.css";
 
 const SignupPage = lazy(() => import("./components/auth/SignUpPage"));
@@ -32,33 +34,41 @@ const router = createBrowserRouter([
   {
     path: "/signup",
     element: (
-      <Suspense fallback={<LoadingFallback />}>
-        <SignupPage />
-      </Suspense>
+      <AuthRoute>
+        <Suspense fallback={<LoadingFallback />}>
+          <SignupPage />
+        </Suspense>
+      </AuthRoute>
     ),
   },
   {
     path: "/login",
     element: (
-      <Suspense fallback={<LoadingFallback />}>
-        <LoginPage />
-      </Suspense>
+      <AuthRoute>
+        <Suspense fallback={<LoadingFallback />}>
+          <LoginPage />
+        </Suspense>
+      </AuthRoute>
     ),
   },
   {
     path: "/dashboard",
     element: (
-      <Suspense fallback={<LoadingFallback />}>
-        <Dashboard />
-      </Suspense>
+      <ProtectedRoute>
+        <Suspense fallback={<LoadingFallback />}>
+          <Dashboard />
+        </Suspense>
+      </ProtectedRoute>
     ),
   },
   {
     path: "/",
     element: (
-      <Suspense fallback={<LoadingFallback />}>
-        <Dashboard />
-      </Suspense>
+      <ProtectedRoute>
+        <Suspense fallback={<LoadingFallback />}>
+          <Dashboard />
+        </Suspense>
+      </ProtectedRoute>
     ),
   },
   {

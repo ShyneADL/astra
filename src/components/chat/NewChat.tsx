@@ -5,8 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
-import { useSelectedConversation } from "@/contexts/SelectedConversationContext"; // Add this import
-import { on } from "events";
+import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
+import { createChatSession } from "@/lib/db";
 
 interface Message {
   id: string;
@@ -16,16 +16,11 @@ interface Message {
 }
 
 interface NewChatProps {
-  onChatStart: () => void;
   messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
-export const NewChat = ({
-  onChatStart,
-  messages,
-  setMessages,
-}: NewChatProps) => {
+export const NewChat = ({ messages, setMessages }: NewChatProps) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
@@ -59,11 +54,10 @@ export const NewChat = ({
 
     const updatedMessages = [...messages, userMessage, aiMessage];
     setMessages(updatedMessages);
-    
+
     const currentInput = input.trim();
     setInput("");
     setIsTyping(true);
-    onChatStart()
 
     const API_URL = "http://localhost:3001";
 
@@ -81,8 +75,12 @@ export const NewChat = ({
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-         messages: messages
-            .filter((msg) => msg.sender === "user" || (msg.sender === "ai" && msg.content !== "..."))
+          messages: updatedMessages
+            .filter(
+              (msg) =>
+                msg.sender === "user" ||
+                (msg.sender === "ai" && msg.content !== "...")
+            )
             .map((msg) => ({
               role: msg.sender === "user" ? "user" : "assistant",
               content: msg.content,
@@ -112,43 +110,23 @@ export const NewChat = ({
         response.headers.get("X-Generated-Title")
       );
 
-      const serverConvId = response.headers.get("X-Conversation-Id");
       const generatedTitle = response.headers.get("X-Generated-Title");
 
-      if (serverConvId && !conversationId) {
-        setConversationId(serverConvId);
+      if (conversationId) {
+        setConversationId(conversationId);
       }
 
       if (generatedTitle && !sessionId) {
         try {
-          const { data: newSession, error } = await supabase
-            .from("chat_sessions")
-            .insert([
-              {
-                title: generatedTitle || "New Convo", // Ensure we always have a title
-                created_at: new Date().toISOString(),
-              },
-            ])
-            .select()
-            .single();
+          const newSession = await createChatSession(generatedTitle);
 
-          if (error) throw error;
-
-          // Set both local and conversation IDs
           setSessionId(newSession.id);
           setConversationId(newSession.id);
-          
-          // CRITICAL: Update the selected conversation context
+
           setSelectedId(newSession.id);
+          console.log("Selected ID:", newSession.id);
 
-          // Force refresh the sidebar immediately
           await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
-
-          // Wait for a small delay then transition to conversation view
-          await new Promise((resolve) => setTimeout(resolve, 100));
-          
-          // Now trigger the transition
-          onChatStart();
         } catch (error) {
           console.error("Failed to create session with title:", error);
         }
@@ -171,20 +149,22 @@ export const NewChat = ({
           )
         );
       }
-
     } catch (error) {
       console.error("Error:", error);
-      
+
       let errorMessage = "Sorry, I encountered an error. Please try again.";
-      
+
       if (error instanceof Error) {
         if (error.message.includes("No access token")) {
           errorMessage = "Authentication required. Please log in to continue.";
-        } else if (error.message.includes("Invalid token") || error.message.includes("401")) {
+        } else if (
+          error.message.includes("Invalid token") ||
+          error.message.includes("401")
+        ) {
           errorMessage = "Your session has expired. Please log in again.";
         }
       }
-      
+
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === aiMessageId
