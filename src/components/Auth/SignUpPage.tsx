@@ -218,22 +218,6 @@ export default function SignUpPage() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <label className="text-muted-foreground flex items-center text-sm">
-                      <input
-                        type="checkbox"
-                        className="border-border text-white h-4 w-4 rounded"
-                      />
-                      <span className="ml-2">Remember me</span>
-                    </label>
-                    <a
-                      href="#"
-                      className="text-white hover:text-white/80 text-sm"
-                    >
-                      Forgot password?
-                    </a>
-                  </div>
-
                   <button
                     type="submit"
                     className="cursor-pointer login-btn relative flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition-all duration-300"
