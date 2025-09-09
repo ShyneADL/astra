@@ -3,7 +3,8 @@ import {
   RouterProvider,
   Navigate,
 } from "react-router-dom";
-import { Suspense, lazy } from "react"; // Add this import
+import { Analytics } from "@vercel/analytics/react";
+import { Suspense, lazy } from "react";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SelectedConversationProvider } from "@/contexts/SelectedConversationContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,8 +12,8 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AuthRoute from "./components/AuthRoute";
 import "./App.css";
 
-const SignupPage = lazy(() => import("./components/auth/SignUpPage"));
-const LoginPage = lazy(() => import("./components/auth/LoginPage"));
+const SignupPage = lazy(() => import("./components/Auth/SignUpPage"));
+const LoginPage = lazy(() => import("./components/Auth/LoginPage"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
 
 const LoadingFallback = () => (
@@ -87,6 +88,7 @@ export default function App() {
             <RouterProvider router={router} />
           </SelectedConversationProvider>
         </AuthProvider>
+        <Analytics />
       </div>
     </QueryClientProvider>
   );
