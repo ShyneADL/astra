@@ -12,7 +12,12 @@ const port = 3001;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://astra-smoky.vercel.app/"],
+    origin: [
+      "http://localhost:5173",
+      "https://astra-smoky.vercel.app/",
+      "https://astra-git-main-shyneadls-projects.vercel.app",
+      "https://astra-ljjq49s7z-shyneadls-projects.vercel.app/",
+    ],
     credentials: true,
   })
 );
