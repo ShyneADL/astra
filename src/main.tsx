@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App";
-import { registerServiceWorker } from "./lib/registerSW";
+// Service worker disabled to prevent aggressive caching
 
 const rootElement = document.getElementById("root")!;
 
@@ -14,5 +14,31 @@ root.render(
   </StrictMode>
 );
 
-// Register service worker
-registerServiceWorker();
+// Unregister any previously installed service workers and clear caches
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
+      })
+      .catch(() => {
+        // noop
+      });
+
+    if (typeof caches !== "undefined") {
+      caches
+        .keys()
+        .then((keys) => {
+          for (const key of keys) {
+            caches.delete(key);
+          }
+        })
+        .catch(() => {
+          // noop
+        });
+    }
+  });
+}
