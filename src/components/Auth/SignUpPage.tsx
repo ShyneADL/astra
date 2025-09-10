@@ -14,42 +14,42 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { type SignUpInput, signUpSchema } from "@/lib/validations/auth";
 
 export default function SignUpPage() {
   const { signUp, signInWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const {
-    register,
-    handleSubmit,
-    setError: setFormError,
-    formState: { errors, isSubmitting },
-  } = useForm<SignUpInput>({
-    resolver: zodResolver(signUpSchema),
-  });
-
-  const onSubmit = async (data: SignUpInput) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // Basic client-side validation
+    if (!email.trim()) {
+      setErrorMessage("Email is required");
+      return;
+    }
+    if (!password) {
+      setErrorMessage("Password is required");
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMessage("Password must be at least 6 characters");
+      return;
+    }
     try {
       setLoading(true);
-      const { error } = await signUp(data.email, data.password);
+      setErrorMessage(null);
+      const { error } = await signUp(email, password);
       if (error) {
-        setFormError("root", {
-          type: "manual",
-          message: error.message,
-        });
+        setErrorMessage(error.message ?? "Failed to sign up");
       } else {
         navigate("/dashboard", { replace: true });
       }
     } catch (err) {
-      setFormError("root", {
-        type: "manual",
-        message: "An unexpected error occurred",
-      });
+      setErrorMessage("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -60,16 +60,10 @@ export default function SignUpPage() {
     try {
       const { error } = await signInWithGoogle();
       if (error) {
-        setFormError("root", {
-          type: "manual",
-          message: error.message,
-        });
+        setErrorMessage(error.message ?? "Google sign-in failed");
       }
     } catch (err) {
-      setFormError("root", {
-        type: "manual",
-        message: "An unexpected error occurred",
-      });
+      setErrorMessage("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -148,11 +142,7 @@ export default function SignUpPage() {
                   </p>
                 </div>
 
-                <form
-                  onSubmit={handleSubmit(onSubmit)}
-                  className="space-y-6"
-                  noValidate
-                >
+                <form onSubmit={onSubmit} className="space-y-6" noValidate>
                   <div>
                     <label
                       htmlFor="email"
@@ -167,17 +157,13 @@ export default function SignUpPage() {
                       <input
                         id="email"
                         type="email"
-                        {...register("email")}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         required
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-3 pl-10 text-sm"
                         placeholder="Enter your email"
                       />
                     </div>
-                    {errors.email && (
-                      <p className="mt-2 text-sm text-red-600">
-                        {errors.email.message}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -194,7 +180,8 @@ export default function SignUpPage() {
                       <input
                         id="password"
                         type={showPassword ? "text" : "password"}
-                        {...register("password")}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         required
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-12 pl-10 text-sm"
                         placeholder="Enter your password"
@@ -211,19 +198,14 @@ export default function SignUpPage() {
                         )}
                       </button>
                     </div>
-                    {errors.password && (
-                      <p className="mt-2 text-sm text-red-600">
-                        {errors.password.message}
-                      </p>
-                    )}
                   </div>
 
                   <button
                     type="submit"
                     className="cursor-pointer login-btn relative flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition-all duration-300"
-                    disabled={loading || isSubmitting}
+                    disabled={loading}
                   >
-                    {loading || isSubmitting ? (
+                    {loading ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span className="ml-2">
@@ -234,6 +216,12 @@ export default function SignUpPage() {
                       "Create Account"
                     )}
                   </button>
+
+                  {errorMessage && (
+                    <div className="rounded-md bg-red-50 p-4">
+                      <p className="text-sm text-red-500">{errorMessage}</p>
+                    </div>
+                  )}
 
                   <div className="relative text-center text-sm text-stone-500">
                     <div className="absolute inset-0 flex items-center">
@@ -257,14 +245,6 @@ export default function SignUpPage() {
                     </button>
                   </div>
                 </form>
-
-                {errors.root && (
-                  <div className="rounded-md bg-red-50 p-4">
-                    <p className="text-sm text-red-500">
-                      {errors.root.message}
-                    </p>
-                  </div>
-                )}
 
                 <div className="text-muted-foreground mt-8 text-center text-sm">
                   Already have an account?{" "}

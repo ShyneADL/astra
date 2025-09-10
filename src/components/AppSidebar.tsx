@@ -13,6 +13,7 @@ import { useSelectedConversation } from "@/contexts/SelectedConversationContext"
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@mui/material";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { deleteSession } from "@/lib/db";
 
 type ConversationItem = {
   id: string;
@@ -25,7 +26,7 @@ interface AppSidebarProps {
 
 export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const { setSelectedId } = useSelectedConversation();
+  const { selectedId, setSelectedId } = useSelectedConversation();
   const queryClient = useQueryClient();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -111,6 +112,19 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
     onConversationSelect();
   };
 
+  const handleDelete = async (conversationId: string) => {
+    try {
+      await deleteSession(conversationId);
+      // Ensure UI reflects deletion immediately
+      queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+    } catch (error) {
+      console.error("Couldn't delete the conversation");
+    }
+    if (selectedId === conversationId) {
+      setSelectedId(null);
+    }
+  };
+
   const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -180,6 +194,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
                     <ConversationList
                       conversations={[conversations[virtualItem.index]]}
                       onSelect={handleConversationClick}
+                      onDelete={handleDelete}
                     />
                   </div>
                 ))}

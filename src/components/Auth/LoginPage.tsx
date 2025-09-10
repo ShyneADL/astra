@@ -1,9 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { type LoginInput, loginSchema } from "@/lib/validations/auth";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -22,20 +19,25 @@ export default function LoginPage() {
   const { signIn, signInWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
-  });
-
-  const onSubmit = async (data: LoginInput) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     try {
       setError(null);
-      const { error } = await signIn(data.email, data.password);
+      if (!email.trim()) {
+        setError("Email is required");
+        return;
+      }
+      if (!password) {
+        setError("Password is required");
+        return;
+      }
+      setLoading(true);
+      const { error } = await signIn(email, password);
       if (error) {
         setError(error.message);
       } else {
@@ -43,11 +45,14 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    setLoading(true);
     try {
       const { error } = await signInWithGoogle();
       if (error) {
@@ -55,8 +60,11 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError("An unexpected error occurred");
+    } finally {
+      setLoading(false);
     }
   };
+
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden p-4">
       <div className="z-10 w-full max-w-6xl">
@@ -132,7 +140,7 @@ export default function LoginPage() {
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={onSubmit} className="space-y-6">
                   <div>
                     <label
                       htmlFor="email"
@@ -145,17 +153,14 @@ export default function LoginPage() {
                         <Mail className="h-5 w-5 text-gray-400" />
                       </div>
                       <input
-                        {...register("email")}
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         type="email"
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-3 pl-10 text-sm"
                         placeholder="Enter your email"
                       />
                     </div>
-                    {errors.email && (
-                      <p className="mt-1 text-sm text-red-500">
-                        {errors.email.message}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -170,8 +175,10 @@ export default function LoginPage() {
                         <Lock className="h-5 w-5 text-gray-400" />
                       </div>
                       <input
-                        {...register("password")}
+                        id="password"
                         type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         className="border-border bg-input block w-full rounded-lg border py-3 pr-12 pl-10 text-sm"
                         placeholder="Enter your password"
                       />
@@ -187,11 +194,6 @@ export default function LoginPage() {
                         )}
                       </button>
                     </div>
-                    {errors.password && (
-                      <p className="mt-1 text-sm text-red-500">
-                        {errors.password.message}
-                      </p>
-                    )}
                   </div>
 
                   <div className="flex items-center justify-between">
@@ -216,9 +218,9 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     className="cursor-pointer login-btn relative flex w-full items-center justify-center rounded-lg px-4 py-3 text-sm font-medium text-white transition-all duration-300"
-                    disabled={isSubmitting}
+                    disabled={loading}
                   >
-                    {isSubmitting ? (
+                    {loading ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin" />
                         <span className="ml-2">Authenticating...</span>
