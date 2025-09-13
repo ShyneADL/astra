@@ -89,7 +89,7 @@ export default function Dashboard() {
           setHasActiveChat(true);
         }}
       />
-      <main className="min-h-[100dvh] bg-gray-50 flex-1 p-2">
+      <main className="min-h-[100dvh] bg-[#f6fcfe] flex-1 p-2">
         <header className="bg-white shadow-sm border-b rounded-lg">
           <div className="pr-3 pl-1">
             <div className="flex justify-between items-center py-2">

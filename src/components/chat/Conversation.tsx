@@ -165,7 +165,7 @@ export default function Conversation({
     setMessages((prev) => [...prev, aiMessage]);
     setIsStreaming(true);
 
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const API_URL = "http://localhost:3001";
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -192,7 +192,10 @@ export default function Conversation({
         throw new Error("Failed to get AI response");
       }
 
-      // Adopt the server-issued conversation id and propagate to global selection
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+
+      // Handle conversation ID from server
       const serverConversationId = response.headers.get("X-Conversation-Id");
       if (serverConversationId) {
         if (conversationId !== serverConversationId) {
@@ -203,12 +206,7 @@ export default function Conversation({
         }
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
       let aiResponse = "";
-      let lastUpdateTime = 0;
-      const throttleMs = 16;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -217,26 +215,21 @@ export default function Conversation({
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
 
-        const now = Date.now();
-        if (now - lastUpdateTime >= throttleMs || done) {
-          lastUpdateTime = now;
+        // Update the AI message in real-time as chunks arrive
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMessageId ? { ...m, content: aiResponse } : m
+          )
+        );
 
-          // Update message content with streaming text
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === aiMessageId ? { ...msg, content: aiResponse } : msg
-            )
-          );
-
-          // Auto-scroll if user is at bottom during streaming
-          if (isScrolledToBottom && messagesContainerRef.current) {
-            requestAnimationFrame(() => {
-              const container = messagesContainerRef.current;
-              if (container) {
-                container.scrollTop = container.scrollHeight;
-              }
-            });
-          }
+        // Auto-scroll if user is at bottom during streaming
+        if (isScrolledToBottom && messagesContainerRef.current) {
+          requestAnimationFrame(() => {
+            const container = messagesContainerRef.current;
+            if (container) {
+              container.scrollTop = container.scrollHeight;
+            }
+          });
         }
       }
 

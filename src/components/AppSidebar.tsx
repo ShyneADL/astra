@@ -13,7 +13,7 @@ import { useSelectedConversation } from "@/contexts/SelectedConversationContext"
 import { useAuth } from "@/contexts/AuthContext";
 import { Skeleton } from "@mui/material";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { deleteSession } from "@/lib/db";
+import { deleteSession, updateSession } from "@/lib/db";
 
 type ConversationItem = {
   id: string;
@@ -115,13 +115,18 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   const handleDelete = async (conversationId: string) => {
     try {
       await deleteSession(conversationId);
-      // Ensure UI reflects deletion immediately
       queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
     } catch (error) {
       console.error("Couldn't delete the conversation");
     }
-    if (selectedId === conversationId) {
-      setSelectedId(null);
+  };
+
+  const handleRename = async (conversationId: string, newTitle: string) => {
+    try {
+      await updateSession(conversationId, { title: newTitle });
+      queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+    } catch (error) {
+      console.error("Couldn't rename the conversation");
     }
   };
 
@@ -195,6 +200,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
                       conversations={[conversations[virtualItem.index]]}
                       onSelect={handleConversationClick}
                       onDelete={handleDelete}
+                      onRename={handleRename}
                     />
                   </div>
                 ))}

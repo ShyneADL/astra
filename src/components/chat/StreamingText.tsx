@@ -5,7 +5,10 @@ interface StreamingTextProps {
   isStreaming: boolean;
 }
 
-export default function StreamingText({ text, isStreaming }: StreamingTextProps) {
+export default function StreamingText({
+  text,
+  isStreaming,
+}: StreamingTextProps) {
   const [displayText, setDisplayText] = useState("");
   const [showCursor, setShowCursor] = useState(false);
 
@@ -27,14 +30,5 @@ export default function StreamingText({ text, isStreaming }: StreamingTextProps)
     return () => clearInterval(interval);
   }, [isStreaming]);
 
-  return (
-    <span className="whitespace-pre-wrap">
-      {displayText}
-      {isStreaming && (
-        <span className={`inline-block w-0.5 h-4 bg-current ml-0.5 ${showCursor ? 'opacity-100' : 'opacity-0'} transition-opacity duration-100`}>
-          |
-        </span>
-      )}
-    </span>
-  );
+  return <span className="whitespace-pre-wrap">{displayText}</span>;
 }

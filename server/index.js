@@ -3,11 +3,22 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
+import { therapistRAGChat } from "./lib/therapist-rag.js";
+import { initializeVectorDB } from "./lib/vector-db.js";
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
+
+// Initialize vector database on startup
+initializeVectorDB().then((success) => {
+  if (success) {
+    console.log("✅ Therapy knowledge base initialized successfully");
+  } else {
+    console.log("❌ Failed to initialize therapy knowledge base");
+  }
+});
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
@@ -169,19 +180,33 @@ app.post("/api/chat", async (req, res) => {
       return res.status(500).json({ error: "Failed to fetch chat history" });
     }
 
+    // Use RAG system for therapeutic context and topic management
+    const ragResult = await therapistRAGChat(userMessage.content, chatHistory);
+
+    console.log("RAG Analysis:", {
+      isOffTopic: ragResult.isOffTopic,
+      relevantKnowledge: ragResult.relevantKnowledge,
+    });
+
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        temperature: 0.7,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 512,
+      },
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: ragResult.prompt }],
+      },
+    });
+
+    // Build history for Gemini (excluding the current user message)
     const geminiHistory = chatHistory.slice(0, -1).map((msg) => ({
       role: msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }],
     }));
-
-    const systemPrompt = process.env.SYSTEM_PROMPT;
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: {
-        role: "system",
-        parts: [{ text: systemPrompt }],
-      },
-    });
 
     const chat = model.startChat({
       history: geminiHistory,
@@ -189,19 +214,21 @@ app.post("/api/chat", async (req, res) => {
 
     // Set up streaming response
     res.setHeader("Content-Type", "text/plain");
-    // Allow browser to read our custom headers
     res.setHeader(
       "Access-Control-Expose-Headers",
-      "X-Conversation-Id, X-Generated-Title"
+      "X-Conversation-Id, X-Generated-Title, X-Off-Topic"
     );
     res.setHeader("Transfer-Encoding", "chunked");
     res.setHeader("X-Conversation-Id", sessionId);
     if (generatedTitle) {
       res.setHeader("X-Generated-Title", generatedTitle);
     }
+    if (ragResult.isOffTopic) {
+      res.setHeader("X-Off-Topic", "true");
+    }
 
-    // Send message and stream response
-    console.log("Sending message to Gemini:", userMessage.content); // Debug log
+    // Send only the user message, not the RAG prompt
+    console.log("Sending user message to Gemini:", userMessage.content);
     const result = await chat.sendMessageStream(userMessage.content);
 
     let fullResponse = "";
@@ -241,7 +268,4 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/chat", (req, res) => {
   res.status(405).send("Use POST /api/chat");
-});
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
 });

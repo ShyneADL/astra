@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Message {
   id: string;
@@ -22,6 +23,7 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const queryClient = useQueryClient();
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 36,
     maxHeight: 200,
@@ -55,7 +57,7 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
     setInput("");
     setIsTyping(true);
 
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const API_URL = "http://localhost:3001";
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -97,7 +99,7 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
         throw new Error("No response body received");
       }
 
-      // await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+      await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
       const serverConversationId = response.headers.get("X-Conversation-Id");
       if (serverConversationId) {
         setConversationId(serverConversationId);

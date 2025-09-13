@@ -40,3 +40,17 @@ export const deleteSession = async (conversationId: string) => {
   if (error) throw error;
   return data;
 };
+
+export const updateSession = async (
+  conversationId: string,
+  updates: { title?: string }
+) => {
+  const { data, error } = await supabase
+    .from("chat_sessions")
+    .update(updates)
+    .eq("id", conversationId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+};

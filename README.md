@@ -298,3 +298,121 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Built with ❤️ by [ShyneADL](https://github.com/ShyneADL)
+
+## RAG Setup Instructions
+
+### Prerequisites
+
+- Node.js (v18 or higher)
+- Supabase account
+- Google AI API key (for Gemini and embeddings)
+
+### Environment Variables
+
+Create a `.env` file in the `server` directory with the following variables:
+
+```env
+# Supabase Configuration
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# Google AI Configuration
+GEMINI_API_KEY=your_gemini_api_key
+
+# Server Configuration
+PORT=3001
+```
+
+### Database Setup
+
+1. Run the SQL migration in your Supabase dashboard:
+
+   ```sql
+   -- Execute the contents of server/migrations/create-therapy-knowledge-table.sql
+   ```
+
+2. The therapy knowledge base will be automatically populated on first server startup.
+
+### Installation
+
+1. Install client dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Install server dependencies:
+   ```bash
+   cd server
+   npm install
+   ```
+
+### Running the Application
+
+1. Start the server:
+
+   ```bash
+   cd server
+   npm run dev:server
+   ```
+
+2. Start the client (in a new terminal):
+   ```bash
+   npm run dev
+   ```
+
+## RAG System Architecture
+
+The RAG system consists of three main components:
+
+### 1. Embedding Service (`server/lib/embedding-service.js`)
+
+- Generates vector embeddings using Google's text-embedding-004 model
+- Calculates cosine similarity for document retrieval
+
+### 2. Vector Database (`server/lib/vector-db.js`)
+
+- Stores therapy knowledge with embeddings in Supabase
+- Performs semantic search for relevant therapeutic content
+- Manages conversation history context
+
+### 3. Therapist RAG Chat (`server/lib/therapist-rag.js`)
+
+- Main RAG orchestration function
+- Detects topic deviation using keyword analysis
+- Builds therapeutic prompts with relevant context
+- Maintains focus on mental health conversations
+
+## Therapeutic Features
+
+### Topic Deviation Prevention
+
+The system automatically detects when users try to discuss non-mental health topics and gently redirects them back to therapeutic conversations.
+
+### Knowledge Base Categories
+
+- `therapeutic_approach`: CBT, DBT, and other therapy methods
+- `therapeutic_technique`: Active listening, validation, etc.
+- `mental_health_condition`: Anxiety, depression support strategies
+- `crisis_management`: Safety protocols and resource guidance
+- `professional_ethics`: Boundary setting and scope limitations
+
+### Crisis Management
+
+The system includes built-in crisis detection and appropriate resource guidance while maintaining professional boundaries.
+
+## API Endpoints
+
+- `POST /api/chat` - Main chat endpoint with RAG integration
+- `GET /api/health` - Health check endpoint
+
+## Contributing
+
+1. Follow the established code patterns
+2. Ensure all therapeutic content is evidence-based
+3. Test topic deviation scenarios thoroughly
+4. Maintain professional therapeutic boundaries in all responses
+
+## License
+
+This project is licensed under the ISC License.
