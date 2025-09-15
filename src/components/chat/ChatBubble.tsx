@@ -66,7 +66,7 @@ function ChatBubble({
             ) : (
               <>
                 {message ? (
-                  <StreamingText text={message} isStreaming={isStreaming} />
+                  <StreamingText text={message} />
                 ) : (
                   isStreaming && <TypingIndicator isVisible={true} />
                 )}
