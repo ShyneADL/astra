@@ -5,7 +5,7 @@ import VoiceChat from "./chat/VoiceChat";
 import Conversation from "./chat/Conversation";
 import { NewChat } from "./chat/NewChat";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
-import { getChatMessages } from "@/lib/db";
+import { useChatMessages } from "@/hooks/use-chat-messages";
 import {
   Select,
   SelectContent,
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Button } from "./ui/button";
-import { PlusCircle } from "lucide-react";
+import { Loader2, PlusCircle } from "lucide-react";
 
 interface Message {
   id: string;
@@ -29,7 +29,17 @@ export default function Dashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const { selectedId, setSelectedId } = useSelectedConversation();
 
-  // Auto-switch to conversation view when messages are added
+  const { data: cachedMessages = [], isLoading: loading } = useChatMessages({
+    conversationId: selectedId,
+  });
+
+  useEffect(() => {
+    if (cachedMessages.length > 0) {
+      setMessages(cachedMessages);
+      setHasActiveChat(true);
+    }
+  }, [cachedMessages]);
+
   useEffect(() => {
     if (messages.length > 0 && !hasActiveChat) {
       console.log(
@@ -38,35 +48,6 @@ export default function Dashboard() {
       setHasActiveChat(true);
     }
   }, [messages.length, hasActiveChat]);
-
-  useEffect(() => {
-    if (!selectedId) return;
-
-    const loadMessages = async () => {
-      try {
-        const fetchedMessages = await getChatMessages(selectedId);
-        if (fetchedMessages) {
-          const formattedMessages = fetchedMessages.map((msg: any) => ({
-            id: String(msg.id),
-            content: msg.content,
-            sender: (msg.role === "assistant" ? "ai" : "user") as "user" | "ai",
-            timestamp: msg.created_at,
-          }));
-
-          setMessages(formattedMessages);
-          setHasActiveChat(true);
-        }
-      } catch (error) {
-        console.error("Failed to load messages:", error);
-        if (!hasActiveChat) {
-          setMessages([]);
-        }
-      }
-    };
-
-    loadMessages();
-    console.log("here's the selected id", selectedId);
-  }, [selectedId, hasActiveChat]);
 
   const handleModeChange = (value: "text" | "voice") => {
     setChatMode(value);
@@ -133,10 +114,19 @@ export default function Dashboard() {
               {!hasActiveChat ? (
                 <NewChat messages={messages} setMessages={setMessages} />
               ) : (
-                <Conversation
-                  initialMessages={messages}
-                  setMessages={setMessages}
-                />
+                <>
+                  {loading && (
+                    <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
+                      <Loader2 className="animate-spin text-primary absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 size-40" />
+                    </div>
+                  )}
+                  {!loading && (
+                    <Conversation
+                      initialMessages={messages}
+                      setMessages={setMessages}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>

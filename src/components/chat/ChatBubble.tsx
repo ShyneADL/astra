@@ -1,5 +1,6 @@
-import { User, Bot } from "lucide-react";
+import { User, Bot, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import TypingIndicator from "./TypingIndicator";
 import StreamingText from "./StreamingText";
 
@@ -8,9 +9,20 @@ interface ChatBubbleProps {
   isUser: boolean;
   timestamp: Date;
   isStreaming?: boolean;
+  failed?: boolean;
+  messageId?: string;
+  onRetry?: (messageId: string) => void;
 }
 
-function ChatBubble({ message, isUser, timestamp, isStreaming = false }: ChatBubbleProps) {
+function ChatBubble({
+  message,
+  isUser,
+  timestamp,
+  isStreaming = false,
+  failed = false,
+  messageId,
+  onRetry,
+}: ChatBubbleProps) {
   const formattedTime = timestamp.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
@@ -34,7 +46,7 @@ function ChatBubble({ message, isUser, timestamp, isStreaming = false }: ChatBub
           )}
         >
           {isUser ? (
-            <User className="text-white h-4 w-4" />
+            <User className="text-muted-foreground h-4 w-4" />
           ) : (
             <Bot className="text-muted-foreground h-4 w-4" />
           )}
@@ -61,6 +73,18 @@ function ChatBubble({ message, isUser, timestamp, isStreaming = false }: ChatBub
               </>
             )}
           </div>
+
+          {failed && isUser && onRetry && messageId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onRetry(messageId)}
+              className="mt-1 h-8 w-fit self-end hover:!bg-transparent text-xs text-gray-500 hover:text-gray-700"
+            >
+              <RotateCcw className="mr-1 h-3 w-3" />
+              Retry
+            </Button>
+          )}
 
           <span
             className={cn(

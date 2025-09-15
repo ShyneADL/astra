@@ -26,7 +26,7 @@ interface AppSidebarProps {
 
 export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const { selectedId, setSelectedId } = useSelectedConversation();
+  const { setSelectedId } = useSelectedConversation();
   const queryClient = useQueryClient();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();

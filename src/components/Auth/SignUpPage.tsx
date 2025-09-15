@@ -16,7 +16,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function SignUpPage() {
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -55,19 +55,19 @@ export default function SignUpPage() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        setErrorMessage(error.message ?? "Google sign-in failed");
-      }
-    } catch (err) {
-      setErrorMessage("An unexpected error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleGoogleSignIn = async () => {
+  //   setLoading(true);
+  //   try {
+  //     const { error } = await signInWithGoogle();
+  //     if (error) {
+  //       setErrorMessage(error.message ?? "Google sign-in failed");
+  //     }
+  //   } catch (err) {
+  //     setErrorMessage("An unexpected error occurred");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden p-4">
@@ -223,7 +223,7 @@ export default function SignUpPage() {
                     </div>
                   )}
 
-                  <div className="relative text-center text-sm text-stone-500">
+                  {/* <div className="relative text-center text-sm text-stone-500">
                     <div className="absolute inset-0 flex items-center">
                       <div className="border-border w-full border-t"></div>
                     </div>
@@ -243,7 +243,7 @@ export default function SignUpPage() {
                       />
                       <span className="ml-2">Google</span>
                     </button>
-                  </div>
+                  </div> */}
                 </form>
 
                 <div className="text-muted-foreground mt-8 text-center text-sm">

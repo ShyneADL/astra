@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 export default function LoginPage() {
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
@@ -50,20 +50,20 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        setError(error.message);
-      }
-    } catch (err) {
-      setError("An unexpected error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // const handleGoogleSignIn = async () => {
+  //   setError(null);
+  //   setLoading(true);
+  //   try {
+  //     const { error } = await signInWithGoogle();
+  //     if (error) {
+  //       setError(error.message);
+  //     }
+  //   } catch (err) {
+  //     setError("An unexpected error occurred");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden p-4">
@@ -230,14 +230,14 @@ export default function LoginPage() {
                     )}
                   </button>
 
-                  <div className="relative text-center text-sm text-stone-500">
+                  {/* <div className="relative text-center text-sm text-stone-500">
                     <div className="absolute inset-0 flex items-center">
                       <div className="border-border w-full border-t"></div>
                     </div>
                     <span className="relative px-2">Or continue with</span>
-                  </div>
+                  </div> */}
 
-                  <div className="grid grid-cols-1 gap-3">
+                  {/* <div className="grid grid-cols-1 gap-3">
                     <button
                       onClick={handleGoogleSignIn}
                       type="button"
@@ -250,7 +250,7 @@ export default function LoginPage() {
                       />
                       <span className="ml-2">Google</span>
                     </button>
-                  </div>
+                  </div> */}
                 </form>
 
                 <div className="text-muted-foreground mt-8 text-center text-sm">

@@ -15,6 +15,7 @@ interface Message {
   content: string;
   sender: "user" | "ai";
   timestamp: string;
+  failed?: boolean;
 }
 
 interface ConversationProps {
@@ -37,13 +38,6 @@ export default function Conversation({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
-
-  interface Message {
-    id: string;
-    content: string;
-    sender: "user" | "ai";
-    timestamp: string;
-  }
 
   useEffect(() => {
     if (!selectedId) return;
@@ -151,10 +145,16 @@ export default function Conversation({
     };
 
     const updatedMessages = [...initialMessages, userMessage];
-    setMessages(updatedMessages);
-    const currentInput = input.trim();
+    setMessages?.(updatedMessages);
     setInput("");
 
+    await sendMessageToAPI(userMessage, updatedMessages);
+  }
+
+  async function sendMessageToAPI(
+    userMessage: Message,
+    messagesHistory: Message[]
+  ) {
     const aiMessageId = (Date.now() + 1).toString();
     const aiMessage: Message = {
       id: aiMessageId,
@@ -162,7 +162,7 @@ export default function Conversation({
       sender: "ai",
       timestamp: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, aiMessage]);
+    setMessages?.((prev) => [...prev, aiMessage]);
     setIsStreaming(true);
 
     const API_URL = "http://localhost:3001";
@@ -177,13 +177,12 @@ export default function Conversation({
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
-          messages: updatedMessages.map(({ sender, content }) => ({
+          messages: messagesHistory.map(({ sender, content }) => ({
             role: sender === "user" ? "user" : "assistant",
             content,
           })),
-          // Prefer globally selected conversation; fall back to local when missing
           conversationId: selectedId ?? conversationId,
-          message: currentInput,
+          message: userMessage.content,
           wantTitle: false,
         }),
       });
@@ -195,7 +194,6 @@ export default function Conversation({
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      // Handle conversation ID from server
       const serverConversationId = response.headers.get("X-Conversation-Id");
       if (serverConversationId) {
         if (conversationId !== serverConversationId) {
@@ -215,14 +213,12 @@ export default function Conversation({
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
 
-        // Update the AI message in real-time as chunks arrive
-        setMessages((prev) =>
+        setMessages?.((prev) =>
           prev.map((m) =>
             m.id === aiMessageId ? { ...m, content: aiResponse } : m
           )
         );
 
-        // Auto-scroll if user is at bottom during streaming
         if (isScrolledToBottom && messagesContainerRef.current) {
           requestAnimationFrame(() => {
             const container = messagesContainerRef.current;
@@ -237,18 +233,41 @@ export default function Conversation({
     } catch (error) {
       console.error("Error:", error);
       setIsStreaming(false);
-      setMessages((prev) =>
+      setMessages?.((prev) =>
         prev.map((msg) =>
-          msg.id === aiMessageId
+          msg.id === userMessage.id
+            ? { ...msg, failed: true }
+            : msg.id === aiMessageId
             ? {
                 ...msg,
                 content: "Sorry, I encountered an error. Please try again.",
+                failed: true,
               }
             : msg
         )
       );
     }
   }
+
+  const handleRetry = async (messageId: string) => {
+    const message = initialMessages.find((msg) => msg.id === messageId);
+    if (!message || message.sender !== "user") return;
+
+    // Remove failed state from the message
+    setMessages?.((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId ? { ...msg, failed: undefined } : msg
+      )
+    );
+
+    // Get messages up to the retry point (excluding any AI responses after the failed message)
+    const messageIndex = initialMessages.findIndex(
+      (msg) => msg.id === messageId
+    );
+    const messagesUpToRetry = initialMessages.slice(0, messageIndex + 1);
+
+    await sendMessageToAPI(message, messagesUpToRetry);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -278,6 +297,9 @@ export default function Conversation({
               isUser={message.sender === "user"}
               timestamp={new Date(message.timestamp)}
               isStreaming={isStreaming && message.sender === "ai"}
+              failed={message.failed}
+              messageId={message.id}
+              onRetry={handleRetry}
             />
           ))}
           <div ref={messagesEndRef} />
