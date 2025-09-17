@@ -46,7 +46,7 @@ export default function SignUpPage() {
       if (error) {
         setErrorMessage(error.message ?? "Failed to sign up");
       } else {
-        navigate("/dashboard", { replace: true });
+        navigate("/onboarding", { replace: true });
       }
     } catch (err) {
       setErrorMessage("An unexpected error occurred");

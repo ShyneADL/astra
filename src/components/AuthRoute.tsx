@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 interface AuthRouteProps {
@@ -7,9 +7,10 @@ interface AuthRouteProps {
 }
 
 export default function AuthRoute({ children }: AuthRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, isOnboardingComplete, loading, profileLoading } = useAuth();
+  const location = useLocation();
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex flex-col items-center gap-2">
@@ -26,9 +27,22 @@ export default function AuthRoute({ children }: AuthRouteProps) {
     );
   }
 
-  // If user is already authenticated, redirect to dashboard
+  // If user is authenticated
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    // If onboarding is complete, redirect to dashboard
+    if (isOnboardingComplete) {
+      return <Navigate to="/dashboard" replace />;
+    }
+
+    // If onboarding is not complete and user is not on onboarding page, redirect to onboarding
+    if (!isOnboardingComplete && location.pathname !== "/onboarding") {
+      return <Navigate to="/onboarding" replace />;
+    }
+
+    // If user is on onboarding page and onboarding is not complete, allow access
+    if (location.pathname === "/onboarding") {
+      return <>{children}</>;
+    }
   }
 
   return <>{children}</>;

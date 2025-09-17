@@ -15,6 +15,7 @@ import "./App.css";
 const SignupPage = lazy(() => import("./components/Auth/SignUpPage"));
 const LoginPage = lazy(() => import("./components/Auth/LoginPage"));
 const Dashboard = lazy(() => import("./components/Dashboard"));
+const Onboarding = lazy(() => import("./components/onboarding/OnboardingPage"));
 
 const LoadingFallback = () => (
   <div className="flex h-screen w-full items-center justify-center">
@@ -48,6 +49,16 @@ const router = createBrowserRouter([
       <AuthRoute>
         <Suspense fallback={<LoadingFallback />}>
           <LoginPage />
+        </Suspense>
+      </AuthRoute>
+    ),
+  },
+  {
+    path: "/onboarding",
+    element: (
+      <AuthRoute>
+        <Suspense fallback={<LoadingFallback />}>
+          <Onboarding />
         </Suspense>
       </AuthRoute>
     ),
