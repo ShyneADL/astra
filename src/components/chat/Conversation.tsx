@@ -39,6 +39,9 @@ export default function Conversation({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
+  const bufferRef = useRef<string[]>([]);
+  const currentAiMessageIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!selectedId) return;
     let cancelled = false;
@@ -92,7 +95,6 @@ export default function Conversation({
     };
   }, [selectedId, initialMessages.length]);
 
-  // Listen for scroll events to track if user is at bottom
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
@@ -113,7 +115,6 @@ export default function Conversation({
     return () => container.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Smart auto-scroll: only scroll if user is at bottom
   useEffect(() => {
     if (isScrolledToBottom && messagesContainerRef.current) {
       const container = messagesContainerRef.current;
@@ -123,7 +124,6 @@ export default function Conversation({
     }
   }, [initialMessages, isScrolledToBottom]);
 
-  // Initial scroll to bottom on load
   useEffect(() => {
     if (messagesContainerRef.current) {
       const container = messagesContainerRef.current;
@@ -133,23 +133,43 @@ export default function Conversation({
     }
   }, []);
 
-  async function handleSendMessage(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim()) return;
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (bufferRef.current.length > 0 && currentAiMessageIdRef.current) {
+        const tokens = bufferRef.current.join("");
+        bufferRef.current = [];
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: input,
-      sender: "user",
-      timestamp: new Date().toISOString(),
-    };
+        setMessages?.((prev) =>
+          prev.map((m) =>
+            m.id === currentAiMessageIdRef.current
+              ? { ...m, content: m.content + tokens }
+              : m
+          )
+        );
 
-    const updatedMessages = [...initialMessages, userMessage];
-    setMessages?.(updatedMessages);
-    setInput("");
+        // Always auto-scroll during streaming, or if user is at bottom
+        if (
+          (isStreaming && currentAiMessageIdRef.current) ||
+          isScrolledToBottom
+        ) {
+          if (messagesContainerRef.current) {
+            requestAnimationFrame(() => {
+              const container = messagesContainerRef.current;
+              if (container) {
+                container.scrollTop = container.scrollHeight;
+              }
+            });
+          }
+        }
+      }
+    }, 50); // Batch every 50ms for smooth streaming
 
-    await sendMessageToAPI(userMessage, updatedMessages);
-  }
+    return () => clearInterval(interval);
+  }, [setMessages, isScrolledToBottom, isStreaming]);
+
+  const addTokenToBuffer = (token: string) => {
+    bufferRef.current.push(token);
+  };
 
   async function sendMessageToAPI(
     userMessage: Message,
@@ -165,7 +185,7 @@ export default function Conversation({
     setMessages?.((prev) => [...prev, aiMessage]);
     setIsStreaming(true);
 
-    const API_URL = "http://localhost:3001";
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -204,6 +224,7 @@ export default function Conversation({
         }
       }
 
+      currentAiMessageIdRef.current = aiMessageId;
       let aiResponse = "";
 
       while (true) {
@@ -213,21 +234,13 @@ export default function Conversation({
         const chunk = decoder.decode(value, { stream: true });
         aiResponse += chunk;
 
-        setMessages?.((prev) =>
-          prev.map((m) =>
-            m.id === aiMessageId ? { ...m, content: aiResponse } : m
-          )
-        );
-
-        if (isScrolledToBottom && messagesContainerRef.current) {
-          requestAnimationFrame(() => {
-            const container = messagesContainerRef.current;
-            if (container) {
-              container.scrollTop = container.scrollHeight;
-            }
-          });
-        }
+        // Add chunk to buffer instead of updating directly
+        addTokenToBuffer(chunk);
       }
+
+      // Clear the buffer and refs when streaming is complete
+      currentAiMessageIdRef.current = null;
+      bufferRef.current = [];
 
       setIsStreaming(false);
     } catch (error) {
@@ -247,6 +260,24 @@ export default function Conversation({
         )
       );
     }
+  }
+
+  async function handleSendMessage(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: input,
+      sender: "user",
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedMessages = [...initialMessages, userMessage];
+    setMessages?.(updatedMessages);
+    setInput("");
+
+    await sendMessageToAPI(userMessage, updatedMessages);
   }
 
   const handleRetry = async (messageId: string) => {
