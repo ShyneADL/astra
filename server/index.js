@@ -29,6 +29,7 @@ app.use(
   cors({
     origin: [
       "http://localhost:5173",
+      "http://localhost:5174",
       "https://astra-smoky.vercel.app",
       "https://astra-git-main-shyneadls-projects.vercel.app",
       "https://astra-ljjq49s7z-shyneadls-projects.vercel.app",

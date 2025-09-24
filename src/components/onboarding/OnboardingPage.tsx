@@ -496,7 +496,7 @@ const OnboardingPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6fcfe] flex items-center justify-center px-4">
+    <div className="min-h-screen maxh-[90dvh] overflow-y-auto bg-[#f6fcfe] flex items-center justify-center px-4">
       <div className="max-w-lg w-full bg-white rounded-xl shadow-xl p-8">
         {/* Progress indicator */}
         <div className="mb-8">

@@ -68,7 +68,11 @@ function ChatBubble({
                 {message ? (
                   <StreamingText text={message} />
                 ) : (
-                  isStreaming && <TypingIndicator isVisible={true} />
+                  isStreaming && (
+                    <div className="min-w-[3rem]">
+                      <TypingIndicator isVisible={true} />
+                    </div>
+                  )
                 )}
               </>
             )}

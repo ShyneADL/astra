@@ -9,6 +9,7 @@ import { getChatMessages, getChatSessionById } from "@/lib/db";
 import ChatBubble from "./ChatBubble";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
+import TypingIndicator from "./TypingIndicator";
 
 interface Message {
   id: string;
@@ -21,11 +22,20 @@ interface Message {
 interface ConversationProps {
   initialMessages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  isAwaitingResponse?: boolean;
+  onAIResponse?: (message: Message) => void;
 }
+
+// Helper function to generate unique IDs
+const generateUniqueId = () => {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
 
 export default function Conversation({
   initialMessages,
   setMessages,
+  isAwaitingResponse = false,
+  onAIResponse,
 }: ConversationProps) {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -41,6 +51,10 @@ export default function Conversation({
 
   const bufferRef = useRef<string[]>([]);
   const currentAiMessageIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    console.log("Rendering Conversation with messages:", initialMessages);
+  }, []);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -79,6 +93,7 @@ export default function Conversation({
           }) ?? [];
 
         if (!cancelled) {
+          // Only load from database if we don't have messages from NewChat
           if (initialMessages.length === 0) {
             setMessages(loaded);
           }
@@ -93,14 +108,13 @@ export default function Conversation({
     return () => {
       cancelled = true;
     };
-  }, [selectedId, initialMessages.length]);
+  }, [selectedId, initialMessages.length, setMessages]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
     const handleScroll = () => {
-      // Add buffer to account for minor rendering differences
       if (
         container.scrollTop + container.clientHeight >=
         container.scrollHeight - 1
@@ -175,17 +189,22 @@ export default function Conversation({
     userMessage: Message,
     messagesHistory: Message[]
   ) {
-    const aiMessageId = (Date.now() + 1).toString();
+    const aiMessageId = generateUniqueId();
     const aiMessage: Message = {
       id: aiMessageId,
       content: "",
       sender: "ai",
       timestamp: new Date().toISOString(),
     };
+
+    // Reset any existing streaming state
+    currentAiMessageIdRef.current = null;
+    bufferRef.current = [];
+
     setMessages?.((prev) => [...prev, aiMessage]);
     setIsStreaming(true);
 
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const API_URL = "http://localhost:3001";
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -211,41 +230,51 @@ export default function Conversation({
         throw new Error("Failed to get AI response");
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-
-      const serverConversationId = response.headers.get("X-Conversation-Id");
-      if (serverConversationId) {
-        if (conversationId !== serverConversationId) {
-          setConversationId(serverConversationId);
-        }
-        if (selectedId !== serverConversationId) {
-          setSelectedId(serverConversationId);
-        }
-      }
-
+      // Set the current message ID only after successful response
       currentAiMessageIdRef.current = aiMessageId;
       let aiResponse = "";
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-        const chunk = decoder.decode(value, { stream: true });
-        aiResponse += chunk;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        // Add chunk to buffer instead of updating directly
-        addTokenToBuffer(chunk);
+          const chunk = decoder.decode(value, { stream: true });
+          aiResponse += chunk;
+          addTokenToBuffer(chunk);
+        }
+      } catch (streamError) {
+        // Handle stream interruption
+        console.error("Stream error:", streamError);
+        throw new Error("Stream interrupted");
       }
 
-      // Clear the buffer and refs when streaming is complete
+      // Clear streaming state
       currentAiMessageIdRef.current = null;
       bufferRef.current = [];
-
       setIsStreaming(false);
+
+      if (onAIResponse) {
+        const completedAiMessage = {
+          ...aiMessage,
+          content:
+            aiResponse || "Sorry, the response was empty. Please try again.",
+          failed: !aiResponse,
+        };
+        onAIResponse(completedAiMessage);
+      }
     } catch (error) {
       console.error("Error:", error);
+
+      // Clear streaming state
+      currentAiMessageIdRef.current = null;
+      bufferRef.current = [];
       setIsStreaming(false);
+
+      // Update both messages to failed state
       setMessages?.((prev) =>
         prev.map((msg) =>
           msg.id === userMessage.id
@@ -267,7 +296,7 @@ export default function Conversation({
     if (!input.trim()) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: generateUniqueId(), // Use unique ID generator
       content: input,
       sender: "user",
       timestamp: new Date().toISOString(),
@@ -284,14 +313,12 @@ export default function Conversation({
     const message = initialMessages.find((msg) => msg.id === messageId);
     if (!message || message.sender !== "user") return;
 
-    // Remove failed state from the message
     setMessages?.((prev) =>
       prev.map((msg) =>
         msg.id === messageId ? { ...msg, failed: undefined } : msg
       )
     );
 
-    // Get messages up to the retry point (excluding any AI responses after the failed message)
     const messageIndex = initialMessages.findIndex(
       (msg) => msg.id === messageId
     );
@@ -314,6 +341,12 @@ export default function Conversation({
     }
   };
 
+  // Create a unique list of messages to prevent duplicates
+  const uniqueMessages = initialMessages.filter(
+    (message, index, self) =>
+      index === self.findIndex((m) => m.id === message.id)
+  );
+
   return (
     <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
       <div className="flex h-full flex-col justify-between">
@@ -321,18 +354,25 @@ export default function Conversation({
           ref={messagesContainerRef}
           className="flex-1 space-y-4 overflow-y-auto p-4"
         >
-          {initialMessages.map((message) => (
+          {uniqueMessages.map((message) => (
             <ChatBubble
               key={message.id}
               message={message.content}
               isUser={message.sender === "user"}
               timestamp={new Date(message.timestamp)}
-              isStreaming={isStreaming && message.sender === "ai"}
+              isStreaming={
+                (isStreaming &&
+                  message.sender === "ai" &&
+                  message.content === "") ||
+                (isAwaitingResponse &&
+                  message === uniqueMessages[uniqueMessages.length - 1])
+              }
               failed={message.failed}
               messageId={message.id}
               onRetry={handleRetry}
             />
           ))}
+
           <div ref={messagesEndRef} />
         </div>
 

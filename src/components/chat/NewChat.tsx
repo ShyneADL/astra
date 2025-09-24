@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { supabase } from "@/lib/supabase";
 import { Send } from "lucide-react";
@@ -15,14 +15,19 @@ interface Message {
 }
 
 interface NewChatProps {
-  messages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  setIsSubmitting: (value: boolean) => void;
+  onOptimisticSubmit?: (message: Message) => void;
 }
 
-export const NewChat = ({ messages, setMessages }: NewChatProps) => {
+export const NewChat = ({
+  setMessages,
+  setIsSubmitting,
+  onOptimisticSubmit,
+}: NewChatProps) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const queryClient = useQueryClient();
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 36,
@@ -30,9 +35,41 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
   });
   const { setSelectedId } = useSelectedConversation();
 
+  // Add these refs at the component level
+  const bufferRef = useRef<string[]>([]);
+  const currentAiMessageIdRef = useRef<string | null>(null);
+
+  // Add this useEffect for handling the buffer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (bufferRef.current.length > 0 && currentAiMessageIdRef.current) {
+        const tokens = bufferRef.current.join("");
+        bufferRef.current = [];
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === currentAiMessageIdRef.current
+              ? { ...m, content: m.content + tokens }
+              : m
+          )
+        );
+      }
+    }, 50); // Batch updates every 50ms
+
+    return () => clearInterval(interval);
+  }, [setMessages]);
+
+  // Add this helper function
+  const addTokenToBuffer = (token: string) => {
+    bufferRef.current.push(token);
+  };
+
+  // Modified handleSendMessage function for optimistic UI
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
+
+    setIsSubmitting(true);
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -41,23 +78,31 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
       timestamp: new Date().toISOString(),
     };
 
-    // Create AI message placeholder
+    // Clear input immediately for better UX
+    const currentInput = input.trim();
+    setInput("");
+
+    // Immediately trigger optimistic UI transition
+    if (onOptimisticSubmit) {
+      onOptimisticSubmit(userMessage);
+    }
+
+    // Create AI message placeholder for streaming
     const aiMessageId = (Date.now() + 1).toString();
     const aiMessage: Message = {
       id: aiMessageId,
-      content: "...",
+      content: "", // Start with empty content
       sender: "ai",
       timestamp: new Date().toISOString(),
     };
 
-    const updatedMessages = [...messages, userMessage, aiMessage];
+    // Add both messages to state
+    const updatedMessages = [userMessage, aiMessage];
     setMessages(updatedMessages);
 
-    const currentInput = input.trim();
-    setInput("");
-    setIsTyping(true);
+    setIsStreaming(true);
 
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const API_URL = "http://localhost:3001";
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -73,30 +118,20 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          messages: updatedMessages
-            .filter(
-              (msg) =>
-                msg.sender === "user" ||
-                (msg.sender === "ai" && msg.content !== "...")
-            )
-            .map((msg) => ({
-              role: msg.sender === "user" ? "user" : "assistant",
-              content: msg.content,
-            })),
+          messages: [
+            {
+              role: "user",
+              content: currentInput,
+            },
+          ],
           conversationId,
           message: currentInput,
           wantTitle: true,
         }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Server error response:", errorText);
-        throw new Error(`Server error: ${response.status} - ${errorText}`);
-      }
-
-      if (!response.body) {
-        throw new Error("No response body received");
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to get AI response");
       }
 
       await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
@@ -105,24 +140,22 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
         setConversationId(serverConversationId);
         setSelectedId(serverConversationId);
       }
-      console.log("serverConversationId", serverConversationId);
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
 
-      let aiResponse = "";
+      currentAiMessageIdRef.current = aiMessageId;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        aiResponse += chunk;
 
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === aiMessageId ? { ...m, content: aiResponse } : m
-          )
-        );
+        const chunk = decoder.decode(value, { stream: true });
+        addTokenToBuffer(chunk);
       }
+
+      currentAiMessageIdRef.current = null;
+      bufferRef.current = [];
     } catch (error) {
       console.error("Error:", error);
 
@@ -141,16 +174,12 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
 
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === aiMessageId
-            ? {
-                ...msg,
-                content: errorMessage,
-              }
-            : msg
+          msg.id === aiMessageId ? { ...msg, content: errorMessage } : msg
         )
       );
     } finally {
-      setIsTyping(false);
+      setIsStreaming(false);
+      setIsSubmitting(false);
     }
   }
 
@@ -215,11 +244,11 @@ export const NewChat = ({ messages, setMessages }: NewChatProps) => {
             className={cn(
               "bg-primary hover:bg-primary/90 w-fit px-4",
               "self-end transition-opacity",
-              isTyping && "opacity-70"
+              isStreaming && "opacity-70"
             )}
-            disabled={isTyping || !input.trim()}
+            disabled={isStreaming || !input.trim()}
           >
-            {isTyping ? (
+            {isStreaming ? (
               <>
                 <span className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                 Sending...
