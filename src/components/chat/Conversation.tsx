@@ -9,7 +9,6 @@ import { getChatMessages, getChatSessionById } from "@/lib/db";
 import ChatBubble from "./ChatBubble";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { cn } from "@/lib/utils";
-import TypingIndicator from "./TypingIndicator";
 
 interface Message {
   id: string;
@@ -26,7 +25,6 @@ interface ConversationProps {
   onAIResponse?: (message: Message) => void;
 }
 
-// Helper function to generate unique IDs
 const generateUniqueId = () => {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
@@ -44,7 +42,7 @@ export default function Conversation({
     minHeight: 36,
     maxHeight: 200,
   });
-  const { selectedId, setSelectedId } = useSelectedConversation();
+  const { selectedId } = useSelectedConversation();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
