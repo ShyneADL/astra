@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Button } from "../ui/button";
 import { supabase } from "@/lib/supabase";
 import { Send } from "lucide-react";
@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { useAutoResizeTextarea } from "@/hooks/use-auto-resize-textarea";
 import { useSelectedConversation } from "@/contexts/SelectedConversationContext";
 import { useQueryClient } from "@tanstack/react-query";
+import { Skeleton } from "@mui/material";
+import { useUserName } from "@/hooks/use-username";
 
 interface Message {
   id: string;
@@ -25,6 +27,7 @@ export const NewChat = ({
   setIsSubmitting,
   onOptimisticSubmit,
 }: NewChatProps) => {
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -35,11 +38,46 @@ export const NewChat = ({
   });
   const { setSelectedId } = useSelectedConversation();
 
-  // Add these refs at the component level
   const bufferRef = useRef<string[]>([]);
   const currentAiMessageIdRef = useRef<string | null>(null);
 
-  // Add this useEffect for handling the buffer
+  const { data: userName } = useUserName();
+
+  // useEffect(() => {
+  //   const loadUser = async () => {
+  //     try {
+  //       const { data: { user } = { user: null } } =
+  //         await supabase.auth.getUser();
+
+  //       if (user) {
+  //         const { data: profile, error: profileError } = await supabase
+  //           .from("profiles")
+  //           .select("first_name")
+  //           .eq("id", user.id)
+  //           .single();
+
+  //         if (profileError) {
+  //           console.error("Error fetching profile:", profileError);
+  //         }
+
+  //         const name =
+  //           profile?.first_name ||
+  //           user.user_metadata?.full_name ||
+  //           user.user_metadata?.name ||
+  //           user.email;
+
+  //         if (name) {
+  //           setDisplayName(name);
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error("Error loading user:", error);
+  //     }
+  //   };
+
+  //   loadUser();
+  // }, []);
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (bufferRef.current.length > 0 && currentAiMessageIdRef.current) {
@@ -54,17 +92,15 @@ export const NewChat = ({
           )
         );
       }
-    }, 50); // Batch updates every 50ms
+    }, 50);
 
     return () => clearInterval(interval);
   }, [setMessages]);
 
-  // Add this helper function
   const addTokenToBuffer = (token: string) => {
     bufferRef.current.push(token);
   };
 
-  // Modified handleSendMessage function for optimistic UI
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
@@ -198,15 +234,29 @@ export const NewChat = ({
   };
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-between px-4 pb-6 pt-16 lg:pb-12 lg:pt-32">
+    <div className="font-Sans flex h-full w-full flex-col items-center justify-between px-4 pb-6 pt-16 lg:pb-12 lg:pt-32">
       <div className="flex flex-col items-center space-y-8">
         <img
           src="/logo-large.png"
           alt="astra logo"
           className="h-16 w-16 rounded-full object-contain shadow-lg"
         />
-        <div className="space-y-2 text-center">
-          <p className="text-base text-gray-400">Hi there 👋</p>
+        <div className="space-y-2 text-center font-Raleway">
+          <p className="text-xl font-medium text-gray-400">
+            Hi there,{" "}
+            <span>
+              <Suspense>
+                {userName ? (
+                  userName
+                ) : (
+                  <span className="inline-block ">
+                    {" "}
+                    <Skeleton width={100} />
+                  </span>
+                )}
+              </Suspense>
+            </span>
+          </p>
           <h1 className="text-xl font-semibold text-gray-900">
             What would you like to talk about today?
           </h1>

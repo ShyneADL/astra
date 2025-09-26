@@ -346,7 +346,7 @@ export default function Conversation({
   );
 
   return (
-    <div className="border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
+    <div className="font-Sans border-border bg-card w-full h-full overflow-hidden rounded-xl border shadow-lg">
       <div className="flex h-full flex-col justify-between">
         <div
           ref={messagesContainerRef}

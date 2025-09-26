@@ -66,7 +66,7 @@ export default function LoginPage() {
   // };
 
   return (
-    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden p-4">
+    <div className="font-Sans relative flex min-h-screen w-full items-center justify-center overflow-hidden p-4">
       <div className="z-10 w-full max-w-6xl">
         <div className="bg-white/50  overflow-hidden rounded-[40px] shadow-2xl">
           <div className="grid min-h-[700px] lg:grid-cols-2">

@@ -11,5 +11,5 @@ export default function StreamingText({ text }: StreamingTextProps) {
     setDisplayText(text);
   }, [text]);
 
-  return <span className="whitespace-pre-wrap">{displayText}</span>;
+  return <span className="font-Sans whitespace-pre-wrap">{displayText}</span>;
 }

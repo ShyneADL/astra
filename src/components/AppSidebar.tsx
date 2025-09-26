@@ -140,7 +140,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
   });
 
   return (
-    <Sidebar className="bg-white">
+    <Sidebar className="font-Sans bg-white">
       <SidebarContent>
         <SidebarGroup className="relative h-full flex flex-col justify-between bg-white">
           <div className="h-[150px] lg:h-[200px] xl:h-[250px]">
@@ -223,7 +223,16 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
                       />
                     )}
                     <span className="font-medium">
-                      {displayName ?? "Guest"}
+                      <Suspense>
+                        {displayName ? (
+                          displayName
+                        ) : (
+                          <span className="inline-block ">
+                            {" "}
+                            <Skeleton width={100} />
+                          </span>
+                        )}
+                      </Suspense>
                     </span>
                   </div>
                   <span>
