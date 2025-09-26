@@ -27,7 +27,6 @@ export const NewChat = ({
   setIsSubmitting,
   onOptimisticSubmit,
 }: NewChatProps) => {
-  const [displayName, setDisplayName] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
