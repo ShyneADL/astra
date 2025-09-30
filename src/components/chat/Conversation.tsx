@@ -203,7 +203,8 @@ export default function Conversation({
     setMessages?.((prev) => [...prev, aiMessage]);
     setIsStreaming(true);
 
-    const API_URL = "http://localhost:3001";
+    const API_URL =
+      import.meta.env.VITE_PUBLIC_API_URL || "http://localhost:3001";
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
