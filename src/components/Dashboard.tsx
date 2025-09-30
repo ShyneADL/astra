@@ -143,7 +143,6 @@ export default function Dashboard() {
                     <Conversation
                       initialMessages={messages}
                       setMessages={setMessages}
-                      isAwaitingResponse={chatState.isAwaitingResponse}
                       onAIResponse={handleAIResponse}
                     />
                   )}
