@@ -1,29 +1,8 @@
-import { useEffect, useState } from "react";
-
 interface TypingIndicatorProps {
   isVisible: boolean;
 }
 
 export default function TypingIndicator({ isVisible }: TypingIndicatorProps) {
-  const [dots, setDots] = useState("●");
-  const [animationPhase, setAnimationPhase] = useState(0);
-
-  useEffect(() => {
-    if (!isVisible) return;
-
-    const interval = setInterval(() => {
-      setDots((prev) => {
-        if (prev === "●") return "●●";
-        if (prev === "●●") return "●●●";
-        return "●";
-      });
-
-      setAnimationPhase((prev) => (prev + 1) % 3);
-    }, 400);
-
-    return () => clearInterval(interval);
-  }, [isVisible]);
-
   if (!isVisible) return null;
 
   return (
