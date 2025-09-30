@@ -77,6 +77,7 @@ export const NewChat = ({
   //   loadUser();
   // }, []);
 
+  // Simplified streaming with reliable token processing
   useEffect(() => {
     const interval = setInterval(() => {
       if (bufferRef.current.length > 0 && currentAiMessageIdRef.current) {
@@ -91,7 +92,7 @@ export const NewChat = ({
           )
         );
       }
-    }, 50);
+    }, 16); // 60fps for smooth streaming
 
     return () => clearInterval(interval);
   }, [setMessages]);
@@ -240,7 +241,7 @@ export const NewChat = ({
           alt="astra logo"
           className="h-16 w-16 rounded-full object-contain shadow-lg"
         />
-        <div className="space-y-2 text-center font-Raleway">
+        <div className="space-y-2 text-center font-heading">
           <p className="text-xl font-medium text-gray-400">
             Hi there,{" "}
             <span>

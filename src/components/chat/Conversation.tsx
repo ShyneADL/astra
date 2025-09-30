@@ -145,10 +145,12 @@ export default function Conversation({
     }
   }, []);
 
+  // Simplified streaming with reliable token processing
   useEffect(() => {
     const interval = setInterval(() => {
       if (bufferRef.current.length > 0 && currentAiMessageIdRef.current) {
         const tokens = bufferRef.current.join("");
+        console.log("Processing tokens:", tokens); // Debug log
         bufferRef.current = [];
 
         setMessages?.((prev) =>
@@ -159,27 +161,26 @@ export default function Conversation({
           )
         );
 
-        // Always auto-scroll during streaming, or if user is at bottom
+        // Smooth auto-scroll during streaming
         if (
           (isStreaming && currentAiMessageIdRef.current) ||
           isScrolledToBottom
         ) {
           if (messagesContainerRef.current) {
+            const container = messagesContainerRef.current;
             requestAnimationFrame(() => {
-              const container = messagesContainerRef.current;
-              if (container) {
-                container.scrollTop = container.scrollHeight;
-              }
+              container.scrollTop = container.scrollHeight;
             });
           }
         }
       }
-    }, 50); // Batch every 50ms for smooth streaming
+    }, 16); // 60fps for smooth streaming
 
     return () => clearInterval(interval);
   }, [setMessages, isScrolledToBottom, isStreaming]);
 
   const addTokenToBuffer = (token: string) => {
+    console.log("Adding token to buffer:", token); // Debug log
     bufferRef.current.push(token);
   };
 
@@ -228,8 +229,9 @@ export default function Conversation({
         throw new Error("Failed to get AI response");
       }
 
-      // Set the current message ID only after successful response
+      // Set the current message ID and start streaming
       currentAiMessageIdRef.current = aiMessageId;
+      setIsStreaming(true);
       let aiResponse = "";
 
       const reader = response.body.getReader();
@@ -241,6 +243,7 @@ export default function Conversation({
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
+          console.log("Received chunk:", chunk); // Debug log
           aiResponse += chunk;
           addTokenToBuffer(chunk);
         }

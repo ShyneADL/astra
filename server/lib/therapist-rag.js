@@ -53,40 +53,43 @@ export async function therapistRAGChat(userQuery, chatHistory) {
     // Fast topic deviation check first (no embedding needed)
     const isOffTopic = detectTopicDeviationFast(userQuery);
 
+    // Skip expensive RAG operations for off-topic queries
+    if (isOffTopic) {
+      const redirectionNote = `
+IMPORTANT: The user appears to be asking about something unrelated to mental health. Gently redirect them back to discussing their emotional wellbeing, feelings, or mental health concerns. Acknowledge their question briefly but guide the conversation back to therapeutic topics.`;
+
+      return {
+        prompt: `${THERAPEUTIC_SYSTEM_PROMPT}\n\n${redirectionNote}\n\nUser: ${userQuery}\n\nRespond as a compassionate therapist. Keep responses concise (2-3 sentences max) and focus on mental health. Be brief but supportive.`,
+        isOffTopic: true,
+        relevantKnowledge: [],
+        systemPrompt: THERAPEUTIC_SYSTEM_PROMPT,
+      };
+    }
+
+    // For on-topic queries, do lightweight RAG
     let relevantDocs = [];
     let queryEmbedding = null;
 
-    // Only do expensive embedding/search if query seems on-topic
-    if (!isOffTopic) {
-      // Check cache first
-      queryEmbedding = getCachedEmbedding(userQuery);
+    // Check cache first
+    queryEmbedding = getCachedEmbedding(userQuery);
 
-      if (!queryEmbedding) {
-        queryEmbedding = await embedWithGemini(userQuery);
-        setCachedEmbedding(userQuery, queryEmbedding);
-      }
-
-      // Reduce search results for faster processing
-      relevantDocs = await searchVectorDB(queryEmbedding, 3);
+    if (!queryEmbedding) {
+      queryEmbedding = await embedWithGemini(userQuery);
+      setCachedEmbedding(userQuery, queryEmbedding);
     }
 
-    const pastChats = getRecentHistory(chatHistory, 3); // Reduced from 5
+    // Reduce search results for faster processing
+    relevantDocs = await searchVectorDB(queryEmbedding, 2); // Reduced from 3
+
+    const pastChats = getRecentHistory(chatHistory, 2); // Reduced from 3
 
     // Build context from relevant therapy knowledge
     const context = relevantDocs
       .map((d) => `[${d.category}] ${d.content}`)
       .join("\n\n");
 
-    let redirectionNote = "";
-    if (isOffTopic) {
-      redirectionNote = `
-IMPORTANT: The user appears to be asking about something unrelated to mental health. Gently redirect them back to discussing their emotional wellbeing, feelings, or mental health concerns. Acknowledge their question briefly but guide the conversation back to therapeutic topics.`;
-    }
-
     // Streamlined prompt for faster processing
     const prompt = `${THERAPEUTIC_SYSTEM_PROMPT}
-
-${redirectionNote}
 
 ${context ? `Relevant Knowledge:\n${context}\n` : ""}
 ${pastChats ? `Recent Context:\n${pastChats}\n` : ""}
@@ -96,7 +99,7 @@ Respond as a compassionate therapist. Keep responses concise (2-3 sentences max)
 
     return {
       prompt,
-      isOffTopic,
+      isOffTopic: false,
       relevantKnowledge: relevantDocs.map((d) => d.category),
       systemPrompt: THERAPEUTIC_SYSTEM_PROMPT,
     };
@@ -172,4 +175,47 @@ function detectTopicDeviationFast(userQuery) {
   );
 
   return hasOffTopicKeywords && !hasMentalHealthKeywords;
+}
+
+// Fast response mode for simple queries
+export function shouldUseFastMode(userQuery) {
+  const lowerQuery = userQuery.toLowerCase();
+
+  // Simple greetings and short responses
+  const simplePatterns = [
+    /^(hi|hello|hey|good morning|good afternoon|good evening)$/,
+    /^(how are you|how's it going|what's up)$/,
+    /^(thank you|thanks|bye|goodbye|see you)$/,
+    /^(yes|no|ok|okay|sure|alright)$/,
+    /^(help|support|assistance)$/,
+  ];
+
+  return simplePatterns.some((pattern) => pattern.test(lowerQuery.trim()));
+}
+
+// Fast response templates for common queries
+export function getFastResponse(userQuery) {
+  const lowerQuery = userQuery.toLowerCase().trim();
+
+  if (/^(hi|hello|hey)$/.test(lowerQuery)) {
+    return "Hello! I'm here to support your mental health and wellbeing. How are you feeling today?";
+  }
+
+  if (/^(how are you|how's it going|what's up)$/.test(lowerQuery)) {
+    return "I'm doing well, thank you for asking. I'm here to focus on how you're doing. How are you feeling right now?";
+  }
+
+  if (/^(thank you|thanks)$/.test(lowerQuery)) {
+    return "You're very welcome. I'm here whenever you need support. How can I help you today?";
+  }
+
+  if (/^(bye|goodbye|see you)$/.test(lowerQuery)) {
+    return "Take care of yourself. Remember, I'm here whenever you need to talk. Have a good day!";
+  }
+
+  if (/^(help|support|assistance)$/.test(lowerQuery)) {
+    return "I'm here to provide emotional support and help with mental health concerns. What's on your mind today?";
+  }
+
+  return null; // No fast response available
 }

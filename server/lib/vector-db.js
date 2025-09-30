@@ -62,7 +62,7 @@ const THERAPY_KNOWLEDGE_BASE = [
 // Cache for therapy documents to avoid repeated database queries
 let documentsCache = null;
 let cacheTimestamp = null;
-const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes - increased for better performance
 
 async function getCachedDocuments() {
   const now = Date.now();

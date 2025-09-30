@@ -69,7 +69,7 @@ function ChatBubble({
             ) : (
               <>
                 {message ? (
-                  <StreamingText text={message} />
+                  <StreamingText text={message} isStreaming={isStreaming} />
                 ) : (
                   isStreaming && (
                     <div className="min-w-[3rem]">

@@ -3,7 +3,11 @@ import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
-import { therapistRAGChat } from "./lib/therapist-rag.js";
+import {
+  therapistRAGChat,
+  shouldUseFastMode,
+  getFastResponse,
+} from "./lib/therapist-rag.js";
 import { initializeVectorDB } from "./lib/vector-db.js";
 
 dotenv.config();
@@ -41,7 +45,16 @@ app.use(express.json());
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  {
+    db: {
+      schema: "public",
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 );
 
 // Initialize Gemini AI
@@ -51,8 +64,6 @@ app.post("/api/chat", async (req, res) => {
   try {
     const { messages, conversationId, wantTitle, message } = req.body;
     const authHeader = req.headers.authorization;
-
-    console.log("Received request body:", JSON.stringify(req.body, null, 2)); // Debug log
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: "No authorization token provided" });
@@ -76,144 +87,87 @@ app.post("/api/chat", async (req, res) => {
         .json({ error: "Messages array is required and cannot be empty" });
     }
 
-    let generatedTitle = null;
-    if (wantTitle && message) {
-      try {
-        const titleModel = genAI.getGenerativeModel({
-          model: "gemini-2.5-flash",
-        });
-        const titlePrompt = [
-          "Summarize the following user message into a very short, human-readable chat title:",
-          "- Max 8 words",
-          "- No surrounding quotes",
-          "- No trailing punctuation",
-          "",
-          `Message: """${message}"""`,
-          "",
-          "Title:",
-        ].join("\n");
-
-        const titleResult = await titleModel.generateContent(titlePrompt);
-        const titleText = titleResult.response.text();
-        generatedTitle = titleText
-          .trim()
-          .replace(/^["'#*\-–\s]+|["'#*\-–\s]+$/g, "")
-          .slice(0, 80);
-      } catch (titleError) {
-        console.error("Title generation error:", titleError);
-      }
-    }
-
-    let sessionId = conversationId;
-
-    if (!sessionId) {
-      const { data: session, error: sessionError } = await supabase
-        .from("chat_sessions")
-        .insert({
-          user_id: user.id,
-        })
-        .select()
-        .single();
-
-      if (sessionError || !session?.id) {
-        console.error("Session creation error:", sessionError);
-        return res.status(500).json({ error: "Failed to create chat session" });
-      }
-
-      // Use the newly created session id
-      sessionId = session.id;
-
-      if (generatedTitle) {
-        const { error: updateError } = await supabase
-          .from("chat_sessions")
-          .update({ title: generatedTitle })
-          .eq("id", sessionId);
-
-        if (updateError) {
-          console.error("Title update error:", updateError);
-        }
-      }
-    } else {
-      const { data: existingSession, error: sessionCheckError } = await supabase
-        .from("chat_sessions")
-        .select("id, user_id")
-        .eq("id", sessionId)
-        .eq("user_id", user.id)
-        .single();
-
-      if (sessionCheckError || !existingSession) {
-        console.error("Session validation error:", sessionCheckError);
-        return res.status(400).json({ error: "Invalid conversation ID" });
-      }
-    }
-
     const userMessage = messages[messages.length - 1];
-
-    // Validate userMessage structure
     if (!userMessage || !userMessage.content) {
       return res.status(400).json({ error: "Invalid message structure" });
     }
 
-    console.log("Processing user message:", userMessage); // Debug log
+    let sessionId = conversationId;
+    let generatedTitle = null;
 
-    const { error: userMsgError } = await supabase
-      .from("chat_messages")
-      .insert({
-        session_id: sessionId,
-        user_id: user.id,
-        role: "user",
-        content: userMessage.content,
-      });
+    // Parallel operations for better performance
+    const [sessionResult, titleResult] = await Promise.allSettled([
+      // Session handling
+      (async () => {
+        if (!sessionId) {
+          const { data: session, error: sessionError } = await supabase
+            .from("chat_sessions")
+            .insert({
+              user_id: user.id,
+            })
+            .select()
+            .single();
 
-    if (userMsgError) {
-      console.error("User message save error:", userMsgError);
-      return res.status(500).json({ error: "Failed to save user message" });
+          if (sessionError || !session?.id) {
+            throw new Error("Failed to create chat session");
+          }
+          return session.id;
+        } else {
+          const { data: existingSession, error: sessionCheckError } =
+            await supabase
+              .from("chat_sessions")
+              .select("id, user_id")
+              .eq("id", sessionId)
+              .eq("user_id", user.id)
+              .single();
+
+          if (sessionCheckError || !existingSession) {
+            throw new Error("Invalid conversation ID");
+          }
+          return sessionId;
+        }
+      })(),
+      // Title generation (only if needed and in parallel)
+      wantTitle && message
+        ? (async () => {
+            try {
+              const titleModel = genAI.getGenerativeModel({
+                model: "gemini-2.5-flash",
+              });
+              const titlePrompt = [
+                "Summarize the following user message into a very short, human-readable chat title:",
+                "- Max 8 words",
+                "- No surrounding quotes",
+                "- No trailing punctuation",
+                "",
+                `Message: """${message}"""`,
+                "",
+                "Title:",
+              ].join("\n");
+
+              const titleResult = await titleModel.generateContent(titlePrompt);
+              const titleText = titleResult.response.text();
+              return titleText
+                .trim()
+                .replace(/^["'#*\-–\s]+|["'#*\-–\s]+$/g, "")
+                .slice(0, 80);
+            } catch (titleError) {
+              console.error("Title generation error:", titleError);
+              return null;
+            }
+          })()
+        : Promise.resolve(null),
+    ]);
+
+    if (sessionResult.status === "rejected") {
+      return res.status(500).json({ error: sessionResult.reason.message });
     }
 
-    const { data: chatHistory, error: historyError } = await supabase
-      .from("chat_messages")
-      .select("role, content")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: true });
+    sessionId = sessionResult.value;
+    generatedTitle =
+      titleResult.status === "fulfilled" ? titleResult.value : null;
 
-    if (historyError) {
-      console.error("History fetch error:", historyError);
-      return res.status(500).json({ error: "Failed to fetch chat history" });
-    }
-
-    // Use RAG system for therapeutic context and topic management
-    const ragResult = await therapistRAGChat(userMessage.content, chatHistory);
-
-    console.log("RAG Analysis:", {
-      isOffTopic: ragResult.isOffTopic,
-      relevantKnowledge: ragResult.relevantKnowledge,
-    });
-
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 512,
-      },
-      systemInstruction: {
-        role: "system",
-        parts: [{ text: ragResult.prompt }],
-      },
-    });
-
-    // Build history for Gemini (excluding the current user message)
-    const geminiHistory = chatHistory.slice(0, -1).map((msg) => ({
-      role: msg.role === "assistant" ? "model" : "user",
-      parts: [{ text: msg.content }],
-    }));
-
-    const chat = model.startChat({
-      history: geminiHistory,
-    });
-
-    // Set up streaming response
+    // Start streaming response immediately
     res.setHeader("Content-Type", "text/plain");
     res.setHeader(
       "Access-Control-Expose-Headers",
@@ -224,35 +178,145 @@ app.post("/api/chat", async (req, res) => {
     if (generatedTitle) {
       res.setHeader("X-Generated-Title", generatedTitle);
     }
-    if (ragResult.isOffTopic) {
+
+    // Check for fast mode first
+    const fastResponse = shouldUseFastMode(userMessage.content)
+      ? getFastResponse(userMessage.content)
+      : null;
+
+    if (fastResponse) {
+      // Fast mode - immediate response without RAG or AI processing
+      res.write(fastResponse);
+      res.end();
+
+      // Save messages asynchronously
+      setImmediate(async () => {
+        try {
+          await supabase.from("chat_messages").insert({
+            session_id: sessionId,
+            user_id: user.id,
+            role: "user",
+            content: userMessage.content,
+          });
+
+          await supabase.from("chat_messages").insert({
+            session_id: sessionId,
+            user_id: user.id,
+            role: "assistant",
+            content: fastResponse,
+          });
+
+          if (generatedTitle) {
+            await supabase
+              .from("chat_sessions")
+              .update({ title: generatedTitle })
+              .eq("id", sessionId);
+          }
+        } catch (error) {
+          console.error("Fast mode save error:", error);
+        }
+      });
+
+      return;
+    }
+
+    // Save user message and get history in parallel with RAG processing
+    const [saveUserMsg, chatHistory, ragResult] = await Promise.allSettled([
+      supabase.from("chat_messages").insert({
+        session_id: sessionId,
+        user_id: user.id,
+        role: "user",
+        content: userMessage.content,
+      }),
+      supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true }),
+      therapistRAGChat(userMessage.content, []), // Start with empty history for speed
+    ]);
+
+    // Handle any errors from parallel operations
+    if (saveUserMsg.status === "rejected") {
+      console.error("User message save error:", saveUserMsg.reason);
+    }
+
+    if (chatHistory.status === "rejected") {
+      console.error("History fetch error:", chatHistory.reason);
+    }
+
+    const history =
+      chatHistory.status === "fulfilled" ? chatHistory.value.data : [];
+    const rag =
+      ragResult.status === "fulfilled"
+        ? ragResult.value
+        : {
+            prompt: `You are a compassionate AI therapist focused on mental health and wellbeing. Respond with empathy and focus on mental health support.`,
+            isOffTopic: false,
+            relevantKnowledge: [],
+          };
+
+    if (rag.isOffTopic) {
       res.setHeader("X-Off-Topic", "true");
     }
 
-    // Send only the user message, not the RAG prompt
-    console.log("Sending user message to Gemini:", userMessage.content);
-    const result = await chat.sendMessageStream(userMessage.content);
+    // Optimized model configuration for faster responses
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        temperature: 0.7,
+        topK: 20, // Reduced for faster generation
+        topP: 0.9, // Reduced for faster generation
+        maxOutputTokens: 300, // Reduced for faster responses
+      },
+      systemInstruction: {
+        role: "system",
+        parts: [{ text: rag.prompt }],
+      },
+    });
 
+    // Build history for Gemini (excluding the current user message)
+    const geminiHistory = history.slice(0, -1).map((msg) => ({
+      role: msg.role === "assistant" ? "model" : "user",
+      parts: [{ text: msg.content }],
+    }));
+
+    const chat = model.startChat({
+      history: geminiHistory,
+    });
+
+    // Start streaming immediately
+    const result = await chat.sendMessageStream(userMessage.content);
     let fullResponse = "";
 
     for await (const chunk of result.stream) {
       const chunkText = chunk.text();
+      console.log("Server streaming chunk:", chunkText); // Debug log
       fullResponse += chunkText;
       res.write(chunkText);
     }
 
-    // Save assistant response to database
-    const { error: assistantMsgError } = await supabase
-      .from("chat_messages")
-      .insert({
-        session_id: sessionId,
-        user_id: user.id,
-        role: "assistant",
-        content: fullResponse,
-      });
+    // Save assistant response asynchronously (don't block response)
+    setImmediate(async () => {
+      try {
+        await supabase.from("chat_messages").insert({
+          session_id: sessionId,
+          user_id: user.id,
+          role: "assistant",
+          content: fullResponse,
+        });
 
-    if (assistantMsgError) {
-      console.error("Assistant message save error:", assistantMsgError);
-    }
+        // Update title if generated
+        if (generatedTitle) {
+          await supabase
+            .from("chat_sessions")
+            .update({ title: generatedTitle })
+            .eq("id", sessionId);
+        }
+      } catch (error) {
+        console.error("Async save error:", error);
+      }
+    });
 
     res.end();
   } catch (error) {
