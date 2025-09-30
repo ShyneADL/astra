@@ -21,7 +21,6 @@ interface Message {
 interface ConversationProps {
   initialMessages: Message[];
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  isAwaitingResponse?: boolean;
   onAIResponse?: (message: Message) => void;
 }
 
@@ -32,7 +31,6 @@ const generateUniqueId = () => {
 export default function Conversation({
   initialMessages,
   setMessages,
-  isAwaitingResponse = false,
   onAIResponse,
 }: ConversationProps) {
   const [input, setInput] = useState("");
@@ -47,7 +45,6 @@ export default function Conversation({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
-  const bufferRef = useRef<string[]>([]);
   const currentAiMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -145,44 +142,15 @@ export default function Conversation({
     }
   }, []);
 
-  // Simplified streaming with reliable token processing
+  // Auto-scroll during streaming
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (bufferRef.current.length > 0 && currentAiMessageIdRef.current) {
-        const tokens = bufferRef.current.join("");
-        console.log("Processing tokens:", tokens); // Debug log
-        bufferRef.current = [];
-
-        setMessages?.((prev) =>
-          prev.map((m) =>
-            m.id === currentAiMessageIdRef.current
-              ? { ...m, content: m.content + tokens }
-              : m
-          )
-        );
-
-        // Smooth auto-scroll during streaming
-        if (
-          (isStreaming && currentAiMessageIdRef.current) ||
-          isScrolledToBottom
-        ) {
-          if (messagesContainerRef.current) {
-            const container = messagesContainerRef.current;
-            requestAnimationFrame(() => {
-              container.scrollTop = container.scrollHeight;
-            });
-          }
-        }
-      }
-    }, 16); // 60fps for smooth streaming
-
-    return () => clearInterval(interval);
-  }, [setMessages, isScrolledToBottom, isStreaming]);
-
-  const addTokenToBuffer = (token: string) => {
-    console.log("Adding token to buffer:", token); // Debug log
-    bufferRef.current.push(token);
-  };
+    if (isStreaming && isScrolledToBottom && messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [initialMessages, isStreaming, isScrolledToBottom]);
 
   async function sendMessageToAPI(
     userMessage: Message,
@@ -196,12 +164,10 @@ export default function Conversation({
       timestamp: new Date().toISOString(),
     };
 
-    // Reset any existing streaming state
-    currentAiMessageIdRef.current = null;
-    bufferRef.current = [];
-
+    // Add the AI message immediately
     setMessages?.((prev) => [...prev, aiMessage]);
     setIsStreaming(true);
+    currentAiMessageIdRef.current = aiMessageId;
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -225,17 +191,17 @@ export default function Conversation({
         }),
       });
 
-      if (!response.ok || !response.body) {
-        throw new Error("Failed to get AI response");
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // Set the current message ID and start streaming
-      currentAiMessageIdRef.current = aiMessageId;
-      setIsStreaming(true);
-      let aiResponse = "";
+      if (!response.body) {
+        throw new Error("No response body received");
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let aiResponse = "";
 
       try {
         while (true) {
@@ -243,20 +209,37 @@ export default function Conversation({
           if (done) break;
 
           const chunk = decoder.decode(value, { stream: true });
-          console.log("Received chunk:", chunk); // Debug log
+          console.log("Received chunk:", chunk);
           aiResponse += chunk;
-          addTokenToBuffer(chunk);
+
+          // Update the message content immediately
+          setMessages?.((prev) =>
+            prev.map((msg) =>
+              msg.id === aiMessageId ? { ...msg, content: aiResponse } : msg
+            )
+          );
         }
       } catch (streamError) {
-        // Handle stream interruption
         console.error("Stream error:", streamError);
         throw new Error("Stream interrupted");
       }
 
-      // Clear streaming state
-      currentAiMessageIdRef.current = null;
-      bufferRef.current = [];
+      // Final update with complete response
+      setMessages?.((prev) =>
+        prev.map((msg) =>
+          msg.id === aiMessageId
+            ? {
+                ...msg,
+                content:
+                  aiResponse ||
+                  "Sorry, the response was empty. Please try again.",
+              }
+            : msg
+        )
+      );
+
       setIsStreaming(false);
+      currentAiMessageIdRef.current = null;
 
       if (onAIResponse) {
         const completedAiMessage = {
@@ -270,17 +253,13 @@ export default function Conversation({
     } catch (error) {
       console.error("Error:", error);
 
-      // Clear streaming state
-      currentAiMessageIdRef.current = null;
-      bufferRef.current = [];
       setIsStreaming(false);
+      currentAiMessageIdRef.current = null;
 
-      // Update both messages to failed state
+      // Update the AI message to show error
       setMessages?.((prev) =>
         prev.map((msg) =>
-          msg.id === userMessage.id
-            ? { ...msg, failed: true }
-            : msg.id === aiMessageId
+          msg.id === aiMessageId
             ? {
                 ...msg,
                 content: "Sorry, I encountered an error. Please try again.",
@@ -362,11 +341,9 @@ export default function Conversation({
               isUser={message.sender === "user"}
               timestamp={new Date(message.timestamp)}
               isStreaming={
-                (isStreaming &&
-                  message.sender === "ai" &&
-                  message.content === "") ||
-                (isAwaitingResponse &&
-                  message === uniqueMessages[uniqueMessages.length - 1])
+                isStreaming &&
+                message.sender === "ai" &&
+                message.id === currentAiMessageIdRef.current
               }
               failed={message.failed}
               messageId={message.id}
