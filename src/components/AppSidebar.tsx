@@ -46,7 +46,7 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
       if (error) throw error;
       return data || [];
     },
-    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
   useEffect(() => {
@@ -98,20 +98,6 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
     };
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      navigate("/login");
-    } catch (error) {
-      console.error("Error logging out:", error);
-    }
-  };
-
-  const handleConversationClick = (conversationId: string) => {
-    setSelectedId(conversationId);
-    onConversationSelect();
-  };
-
   const handleDelete = async (conversationId: string) => {
     try {
       await deleteSession(conversationId);
@@ -128,6 +114,20 @@ export const AppSidebar = ({ onConversationSelect }: AppSidebarProps) => {
     } catch (error) {
       console.error("Couldn't rename the conversation");
     }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/login");
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
+  const handleConversationClick = (conversationId: string) => {
+    setSelectedId(conversationId);
+    onConversationSelect();
   };
 
   const parentRef = useRef<HTMLDivElement>(null);

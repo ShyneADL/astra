@@ -15,7 +15,6 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Initialize vector database on startup
 initializeVectorDB().then((success) => {
   if (success) {
     console.log("✅ Therapy knowledge base initialized successfully");
@@ -57,7 +56,6 @@ const supabase = createClient(
   }
 );
 
-// Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post("/api/chat", async (req, res) => {
@@ -80,7 +78,6 @@ app.post("/api/chat", async (req, res) => {
       return res.status(401).json({ error: "Invalid token" });
     }
 
-    // Validate messages array
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res
         .status(400)
@@ -95,7 +92,6 @@ app.post("/api/chat", async (req, res) => {
     let sessionId = conversationId;
     let generatedTitle = null;
 
-    // Parallel operations for better performance
     const [sessionResult, titleResult] = await Promise.allSettled([
       // Session handling
       (async () => {

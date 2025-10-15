@@ -17,7 +17,6 @@ const THERAPEUTIC_SYSTEM_PROMPT = `You are a compassionate AI therapist focused 
 
 Remember: Your primary purpose is mental health support. Always guide conversations back to emotional wellbeing and therapeutic goals.`;
 
-// Cache for recent embeddings to avoid redundant API calls
 const embeddingCache = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 

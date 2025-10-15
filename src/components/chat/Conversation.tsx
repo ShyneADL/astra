@@ -164,7 +164,6 @@ export default function Conversation({
       timestamp: new Date().toISOString(),
     };
 
-    // Add the AI message immediately
     setMessages?.((prev) => [...prev, aiMessage]);
     setIsStreaming(true);
     currentAiMessageIdRef.current = aiMessageId;

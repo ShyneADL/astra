@@ -42,41 +42,6 @@ export const NewChat = ({
 
   const { data: userName } = useUserName();
 
-  // useEffect(() => {
-  //   const loadUser = async () => {
-  //     try {
-  //       const { data: { user } = { user: null } } =
-  //         await supabase.auth.getUser();
-
-  //       if (user) {
-  //         const { data: profile, error: profileError } = await supabase
-  //           .from("profiles")
-  //           .select("first_name")
-  //           .eq("id", user.id)
-  //           .single();
-
-  //         if (profileError) {
-  //           console.error("Error fetching profile:", profileError);
-  //         }
-
-  //         const name =
-  //           profile?.first_name ||
-  //           user.user_metadata?.full_name ||
-  //           user.user_metadata?.name ||
-  //           user.email;
-
-  //         if (name) {
-  //           setDisplayName(name);
-  //         }
-  //       }
-  //     } catch (error) {
-  //       console.error("Error loading user:", error);
-  //     }
-  //   };
-
-  //   loadUser();
-  // }, []);
-
   // Simplified streaming with reliable token processing
   useEffect(() => {
     const interval = setInterval(() => {
@@ -92,7 +57,7 @@ export const NewChat = ({
           )
         );
       }
-    }, 16); // 60fps for smooth streaming
+    }, 16);
 
     return () => clearInterval(interval);
   }, [setMessages]);
@@ -132,7 +97,6 @@ export const NewChat = ({
       timestamp: new Date().toISOString(),
     };
 
-    // Add both messages to state
     const updatedMessages = [userMessage, aiMessage];
     setMessages(updatedMessages);
 
