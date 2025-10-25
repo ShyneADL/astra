@@ -48,8 +48,39 @@ export default function Conversation({
   const currentAiMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    console.log("Rendering Conversation with messages:", initialMessages);
-  }, []);
+    // Check if there's an AI message with empty content that should be streaming
+    const emptyAiMessage = initialMessages.find(
+      (msg) => msg.sender === "ai" && msg.content === ""
+    );
+
+    if (emptyAiMessage) {
+      setIsStreaming(true);
+      currentAiMessageIdRef.current = emptyAiMessage.id;
+    } else {
+      // Reset streaming state if no empty AI message
+      setIsStreaming(false);
+      currentAiMessageIdRef.current = null;
+    }
+  }, [initialMessages]);
+
+  // Watch for changes in messages to update streaming state
+  useEffect(() => {
+    const emptyAiMessage = initialMessages.find(
+      (msg) => msg.sender === "ai" && msg.content === ""
+    );
+
+    if (emptyAiMessage) {
+      if (!isStreaming) {
+        setIsStreaming(true);
+        currentAiMessageIdRef.current = emptyAiMessage.id;
+      }
+    } else {
+      if (isStreaming) {
+        setIsStreaming(false);
+        currentAiMessageIdRef.current = null;
+      }
+    }
+  }, [initialMessages, isStreaming]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -211,7 +242,7 @@ export default function Conversation({
           console.log("Received chunk:", chunk);
           aiResponse += chunk;
 
-          // Update the message content immediately
+          // Update the message content immediately for streaming effect
           setMessages?.((prev) =>
             prev.map((msg) =>
               msg.id === aiMessageId ? { ...msg, content: aiResponse } : msg
@@ -333,22 +364,25 @@ export default function Conversation({
           ref={messagesContainerRef}
           className="flex-1 space-y-4 overflow-y-auto p-4"
         >
-          {uniqueMessages.map((message) => (
-            <ChatBubble
-              key={message.id}
-              message={message.content}
-              isUser={message.sender === "user"}
-              timestamp={new Date(message.timestamp)}
-              isStreaming={
-                isStreaming &&
-                message.sender === "ai" &&
-                message.id === currentAiMessageIdRef.current
-              }
-              failed={message.failed}
-              messageId={message.id}
-              onRetry={handleRetry}
-            />
-          ))}
+          {uniqueMessages.map((message) => {
+            const shouldStream =
+              isStreaming &&
+              message.sender === "ai" &&
+              message.id === currentAiMessageIdRef.current;
+
+            return (
+              <ChatBubble
+                key={message.id}
+                message={message.content}
+                isUser={message.sender === "user"}
+                timestamp={new Date(message.timestamp)}
+                isStreaming={shouldStream}
+                failed={message.failed}
+                messageId={message.id}
+                onRetry={handleRetry}
+              />
+            );
+          })}
 
           <div ref={messagesEndRef} />
         </div>

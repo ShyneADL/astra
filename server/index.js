@@ -96,10 +96,15 @@ app.post("/api/chat", async (req, res) => {
       // Session handling
       (async () => {
         if (!sessionId) {
+          // Create session with a temporary title that will be updated
+          const tempTitle = message
+            ? message.slice(0, 50) + "..."
+            : "New Conversation";
           const { data: session, error: sessionError } = await supabase
             .from("chat_sessions")
             .insert({
               user_id: user.id,
+              title: tempTitle,
             })
             .select()
             .single();
@@ -163,6 +168,18 @@ app.post("/api/chat", async (req, res) => {
     generatedTitle =
       titleResult.status === "fulfilled" ? titleResult.value : null;
 
+    // Save the title immediately for new conversations to ensure it's available
+    if (generatedTitle && wantTitle) {
+      try {
+        await supabase
+          .from("chat_sessions")
+          .update({ title: generatedTitle })
+          .eq("id", sessionId);
+      } catch (titleSaveError) {
+        console.error("Title save error:", titleSaveError);
+      }
+    }
+
     // Start streaming response immediately
     res.setHeader("Content-Type", "text/plain");
     res.setHeader(
@@ -202,12 +219,7 @@ app.post("/api/chat", async (req, res) => {
             content: fastResponse,
           });
 
-          if (generatedTitle) {
-            await supabase
-              .from("chat_sessions")
-              .update({ title: generatedTitle })
-              .eq("id", sessionId);
-          }
+          // Title already saved synchronously above
         } catch (error) {
           console.error("Fast mode save error:", error);
         }
@@ -302,13 +314,7 @@ app.post("/api/chat", async (req, res) => {
           content: fullResponse,
         });
 
-        // Update title if generated
-        if (generatedTitle) {
-          await supabase
-            .from("chat_sessions")
-            .update({ title: generatedTitle })
-            .eq("id", sessionId);
-        }
+        // Title already saved synchronously above
       } catch (error) {
         console.error("Async save error:", error);
       }

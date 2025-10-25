@@ -134,11 +134,14 @@ export const NewChat = ({
         throw new Error("Failed to get AI response");
       }
 
-      await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
       const serverConversationId = response.headers.get("X-Conversation-Id");
+
       if (serverConversationId) {
         setConversationId(serverConversationId);
         setSelectedId(serverConversationId);
+
+        // Immediately refresh the conversation list to show the new conversation
+        queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
       }
 
       const reader = response.body.getReader();
@@ -156,6 +159,15 @@ export const NewChat = ({
 
       currentAiMessageIdRef.current = null;
       bufferRef.current = [];
+
+      // Refresh the conversation list to show the generated title
+      // Title is now saved synchronously on the server
+      await queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+
+      // Additional refresh after a short delay to ensure title is updated
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["chat_sessions"] });
+      }, 500);
     } catch (error) {
       console.error("Error:", error);
 

@@ -152,7 +152,9 @@ export const ConversationList = memo(function ConversationList({
                 </div>
               ) : (
                 <>
-                  <span className="flex-1 truncate">{conversation.title}</span>
+                  <span className="flex-1 truncate">
+                    {conversation.title || "New Conversation"}
+                  </span>
                   <Popover
                     open={menuOpenId === conversation.id}
                     onOpenChange={(open) =>
