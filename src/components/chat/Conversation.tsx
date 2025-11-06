@@ -119,14 +119,12 @@ export default function Conversation({
           }) ?? [];
 
         if (!cancelled) {
-          // Only load from database if we don't have messages from NewChat
-          if (initialMessages.length === 0) {
-            setMessages(loaded);
-          }
+          // Always load full history when switching conversations
+          setMessages(loaded);
         }
       } catch (err) {
         console.error("Failed to load conversation:", err);
-        if (!cancelled && initialMessages.length === 0) setMessages([]);
+        if (!cancelled) setMessages([]);
       } finally {
       }
     })();
@@ -134,7 +132,7 @@ export default function Conversation({
     return () => {
       cancelled = true;
     };
-  }, [selectedId, initialMessages.length, setMessages]);
+  }, [selectedId, setMessages]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
